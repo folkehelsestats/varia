@@ -147,7 +147,7 @@ taskFormUI <- function(id) {
     actionButton(
       ns("submit"),
       "Submit",
-      class = "btn-default"
+      class = "submit-notready"
     )
 
   )
@@ -159,16 +159,16 @@ taskFormUI <- function(id) {
 ############################################################
 
 taskFormServer <- function(
-  id,
-  tasks,
-  on_submit
-) {
+                           id,
+                           tasks,
+                           on_submit
+                           ) {
 
   moduleServer(id, function(
-    input,
-    output,
-    session
-  ) {
+                            input,
+                            output,
+                            session
+                            ) {
 
     disable("submit")
 
@@ -215,7 +215,7 @@ taskFormServer <- function(
 
           if (
             is.null(value) ||
-            is.na(value)
+              is.na(value)
           ) {
             0
           } else {
@@ -272,19 +272,6 @@ taskFormServer <- function(
     # Enable submit only at exactly 100
     ########################################################
 
-    observe({
-
-      if (total_score() == 100) {
-
-        enable("submit")
-
-      } else {
-
-        disable("submit")
-
-      }
-
-    })
 
     ########################################################
     # Reset
@@ -311,6 +298,40 @@ taskFormServer <- function(
     # Submit
     ########################################################
 
+    observe({
+
+      if (total_score() == 100) {
+
+        enable("submit")
+
+        removeClass(
+          id = "submit",
+          class = "submit-notready"
+        )
+
+        addClass(
+          id = "submit",
+          class = "submit-ready"
+        )
+
+      } else {
+
+        disable("submit")
+
+        removeClass(
+          id = "submit",
+          class = "submit-ready"
+        )
+
+        addClass(
+          id = "submit",
+          class = "submit-notready"
+        )
+
+      }
+
+    })
+    
     observeEvent(input$submit, {
 
       scores <- sapply(
@@ -402,16 +423,16 @@ resultsDashboardUI <- function(id) {
 ############################################################
 
 resultsDashboardServer <- function(
-  id,
-  survey_data,
-  tasks
-) {
+                                   id,
+                                   survey_data,
+                                   tasks
+                                   ) {
 
   moduleServer(id, function(
-    input,
-    output,
-    session
-  ) {
+                            input,
+                            output,
+                            session
+                            ) {
 
     ########################################################
     # Count respondents
@@ -585,44 +606,64 @@ ui <- dashboardPage(
 
   ),
 
-  dashboardBody(
+    dashboardBody(
 
-    useShinyjs(),
+      useShinyjs(),
+
+      tags$head(
+
+        tags$style(HTML("
+
+      .submit-ready {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+        color: white !important;
+      }
+
+      .submit-notready {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: white !important;
+      }
+
+    "))
+
+    ),
 
     tabItems(
 
       ######################################################
-      # Survey Tab
-      ######################################################
+    # Survey Tab
+    ######################################################
 
-      tabItem(
-        tabName = "survey",
-        fluidRow(
-          box(
-            width = 12,
-            title = "Aktiviteter",
-            status = "primary",
-            solidHeader = TRUE,
-            p(
-              "Allocate exactly 100 points across the tasks."
-            ),
-            br(),
-            taskFormUI("survey")
-          )
-        )
-      ),
-
-      ######################################################
-      # Results Tab
-      ######################################################
-
-      tabItem(
-        tabName = "results",
-        resultsDashboardUI(
-          "dashboard"
+    tabItem(
+      tabName = "survey",
+      fluidRow(
+        box(
+          width = 12,
+          title = "Aktiviteter",
+          status = "primary",
+          solidHeader = TRUE,
+          p(
+            "Allocate exactly 100 points across the tasks."
+          ),
+          br(),
+          taskFormUI("survey")
         )
       )
+    ),
+
+    ######################################################
+    # Results Tab
+    ######################################################
+
+    tabItem(
+      tabName = "results",
+      resultsDashboardUI(
+        "dashboard"
+      )
     )
+  )
   )
 )
 
@@ -631,10 +672,10 @@ ui <- dashboardPage(
 ############################################################
 
 server <- function(
-  input,
-  output,
-  session
-) {
+                   input,
+                   output,
+                   session
+                   ) {
 
   ##########################################################
   # Refresh Google Sheet every 5 seconds
