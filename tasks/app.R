@@ -1,17 +1,22 @@
 ############################################################
 # Task Prioritization Survey
 #
-# Stores data in Google Sheets
-# Displays average scores using highdir
+# Stores responses in Google Sheets
+# Displays average task priorities in a Shinydashboard
 #
 # Google Sheet columns:
 # ID | Time | Tasks | Scores
 #
-# Worksheet name:
+# Worksheet:
 # tasksavd
 ############################################################
 
+############################################################
+# PACKAGES
+############################################################
+
 library(shiny)
+library(shinydashboard)
 library(shinyjs)
 library(shinyWidgets)
 library(highcharter)
@@ -29,7 +34,7 @@ gs4_auth(
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 
 ############################################################
-# TASKS
+# TASK DEFINITIONS
 ############################################################
 
 tasks <- c(
@@ -41,7 +46,7 @@ tasks <- c(
   "Annen"
 )
 
-ttxt <- c(
+task_text <- c(
   "Planlegging av ting og tang",
   "Rapportering internasjonal osv.",
   "Møte virksomhet",
@@ -50,12 +55,17 @@ ttxt <- c(
   "Alt annen"
 )
 
-df <- setNames(ttxt, tasks)
+task_labels <- setNames(
+  task_text,
+  tasks
+)
 
 ############################################################
 # GOOGLE SHEETS FUNCTIONS
 ############################################################
 
+# Read responses from sheet.
+# Returns an empty data frame if the sheet cannot be read.
 read_responses <- function() {
 
   tryCatch({
@@ -71,13 +81,15 @@ read_responses <- function() {
       ID = character(),
       Time = character(),
       Tasks = character(),
-      Scores = numeric()
+      Scores = numeric(),
+      stringsAsFactors = FALSE
     )
 
   })
 
 }
 
+# Save one survey submission.
 save_response <- function(scores) {
 
   response_id <- paste0(
@@ -103,7 +115,7 @@ save_response <- function(scores) {
 }
 
 ############################################################
-# TASK INPUT MODULE
+# SURVEY MODULE UI
 ############################################################
 
 taskFormUI <- function(id) {
@@ -116,9 +128,9 @@ taskFormUI <- function(id) {
 
     br(),
 
-    strong(textOutput(ns("total_text"))),
-
-    br(),
+    strong(
+      textOutput(ns("total_text"))
+    ),
 
     textOutput(ns("status_text")),
 
@@ -142,14 +154,26 @@ taskFormUI <- function(id) {
 
 }
 
-taskFormServer <- function(id, tasks, on_submit) {
+############################################################
+# SURVEY MODULE SERVER
+############################################################
 
-  moduleServer(id, function(input, output, session) {
+taskFormServer <- function(
+  id,
+  tasks,
+  on_submit
+) {
+
+  moduleServer(id, function(
+    input,
+    output,
+    session
+  ) {
 
     disable("submit")
 
     ########################################################
-    # Create task inputs
+    # Create numeric inputs dynamically
     ########################################################
 
     output$task_inputs <- renderUI({
@@ -159,15 +183,13 @@ taskFormServer <- function(id, tasks, on_submit) {
         lapply(seq_along(tasks), function(i) {
 
           autonumericInput(
-            inputId = session$ns(paste0("task_", i)),
+            inputId = session$ns(
+              paste0("task_", i)
+            ),
             label = unname(tasks)[i],
-
             value = 0,
-
             minimumValue = 0,
-
             decimalPlaces = 0,
-
             emptyInputBehavior = "zero"
           )
 
@@ -178,29 +200,34 @@ taskFormServer <- function(id, tasks, on_submit) {
     })
 
     ########################################################
-    # Total calculation
+    # Total score
     ########################################################
 
     total_score <- reactive({
 
-      scores <- sapply(seq_along(tasks), function(i) {
+      sum(
+        sapply(seq_along(tasks), function(i) {
 
-        value <- input[[paste0("task_", i)]]
+          value <- input[[paste0(
+            "task_",
+            i
+          )]]
 
-        if (is.null(value) || is.na(value)) {
-          0
-        } else {
-          value
-        }
-
-      })
-
-      sum(scores)
+          if (
+            is.null(value) ||
+            is.na(value)
+          ) {
+            0
+          } else {
+            value
+          }
+        })
+      )
 
     })
 
     ########################################################
-    # Display total
+    # Total display
     ########################################################
 
     output$total_text <- renderText({
@@ -242,7 +269,7 @@ taskFormServer <- function(id, tasks, on_submit) {
     })
 
     ########################################################
-    # Enable submit only when total = 100
+    # Enable submit only at exactly 100
     ########################################################
 
     observe({
@@ -251,24 +278,16 @@ taskFormServer <- function(id, tasks, on_submit) {
 
         enable("submit")
 
-        removeClass("submit", "btn-default")
-
-        addClass("submit", "btn-success")
-
       } else {
 
         disable("submit")
-
-        removeClass("submit", "btn-success")
-
-        addClass("submit", "btn-default")
 
       }
 
     })
 
     ########################################################
-    # Reset button
+    # Reset
     ########################################################
 
     observeEvent(input$reset, {
@@ -277,7 +296,10 @@ taskFormServer <- function(id, tasks, on_submit) {
 
         updateAutonumericInput(
           session = session,
-          inputId = paste0("task_", i),
+          inputId = paste0(
+            "task_",
+            i
+          ),
           value = 0
         )
 
@@ -291,13 +313,23 @@ taskFormServer <- function(id, tasks, on_submit) {
 
     observeEvent(input$submit, {
 
-      scores <- sapply(seq_along(tasks), function(i) {
+      scores <- sapply(
+        seq_along(tasks),
+        function(i) {
 
-        value <- input[[paste0("task_", i)]]
+          value <- input[[paste0(
+            "task_",
+            i
+          )]]
 
-        if (is.null(value)) 0 else value
+          if (is.null(value)) {
+            0
+          } else {
+            value
+          }
 
-      })
+        }
+      )
 
       on_submit(scores)
 
@@ -306,11 +338,15 @@ taskFormServer <- function(id, tasks, on_submit) {
         type = "message"
       )
 
+      # Reset after submit
       for (i in seq_along(tasks)) {
 
         updateAutonumericInput(
           session,
-          inputId = paste0("task_", i),
+          inputId = paste0(
+            "task_",
+            i
+          ),
           value = 0
         )
 
@@ -323,37 +359,62 @@ taskFormServer <- function(id, tasks, on_submit) {
 }
 
 ############################################################
-# DASHBOARD MODULE
+# RESULTS MODULE UI
 ############################################################
 
-dashboardUI <- function(id) {
+resultsDashboardUI <- function(id) {
 
   ns <- NS(id)
 
   tagList(
 
-    strong(
-      textOutput(ns("respondent_count"))
+    fluidRow(
+
+      valueBoxOutput(
+        ns("respondent_box"),
+        width = 4
+      )
+
     ),
 
-    br(),
-    br(),
+    fluidRow(
 
-    highchartOutput(
-      ns("chart"),
-      height = "600px"
+      box(
+        width = 12,
+        title = NULL,
+        solidHeader = FALSE,
+
+        highchartOutput(
+          ns("main_chart"),
+          height = "calc(100vh - 180px)"
+          # height = "650px" #fit windows
+        )
+      )
+
     )
 
   )
 
 }
 
-dashboardServer <- function(id, survey_data, tasks) {
+############################################################
+# RESULTS MODULE SERVER
+############################################################
 
-  moduleServer(id, function(input, output, session) {
+resultsDashboardServer <- function(
+  id,
+  survey_data,
+  tasks
+) {
+
+  moduleServer(id, function(
+    input,
+    output,
+    session
+  ) {
 
     ########################################################
-    # Respondent count
+    # Count respondents
     ########################################################
 
     respondent_count <- reactive({
@@ -364,30 +425,39 @@ dashboardServer <- function(id, survey_data, tasks) {
         return(0)
       }
 
-      n_distinct(df$ID)
+      dplyr::n_distinct(df$ID)
 
     })
 
-    output$respondent_count <- renderText({
+    ########################################################
+    # Value box
+    ########################################################
 
-      paste(
-        "Number of respondents:",
-        respondent_count()
+    output$respondent_box <- renderValueBox({
+
+      valueBox(
+        value = respondent_count(),
+        subtitle = "Respondents",
+        icon = icon("users"),
+        color = "blue"
       )
 
     })
 
     ########################################################
-    # Highcharter plot
+    # Chart
     ########################################################
 
-    output$chart <- renderHighchart({
+    output$main_chart <- renderHighchart({
 
       df <- survey_data()
 
       if (nrow(df) == 0) {
 
-        avg_scores <- rep(0, length(tasks))
+        averages <- rep(
+          0,
+          length(tasks)
+        )
 
       } else {
 
@@ -396,12 +466,17 @@ dashboardServer <- function(id, survey_data, tasks) {
         summary_df <- df %>%
           group_by(Tasks) %>%
           summarise(
-            total_score = sum(Scores, na.rm = TRUE),
+            total_score = sum(
+              Scores,
+              na.rm = TRUE
+            ),
             .groups = "drop"
           )
 
         summary_df <- merge(
-          data.frame(Tasks = tasks),
+          data.frame(
+            Tasks = tasks
+          ),
           summary_df,
           by = "Tasks",
           all.x = TRUE
@@ -415,11 +490,14 @@ dashboardServer <- function(id, survey_data, tasks) {
 
         if (respondents == 0) {
 
-          avg_scores <- rep(0, length(tasks))
+          averages <- rep(
+            0,
+            length(tasks)
+          )
 
         } else {
 
-          avg_scores <- round(
+          averages <- round(
             summary_df$total_score /
               respondents,
             1
@@ -430,50 +508,45 @@ dashboardServer <- function(id, survey_data, tasks) {
       }
 
       highchart() |>
-
-        hc_chart(type = "column") |>
-
-        hc_title(
-          text = "Average Task Prioritization"
+        hc_chart(
+          type = "column"
         ) |>
-
+        hc_title(
+          text = "Average Task Priority"
+        ) |>
         hc_subtitle(
           text = paste(
             "Respondents:",
             respondent_count()
           )
         ) |>
-
         hc_xAxis(
           categories = tasks
         ) |>
-
         hc_yAxis(
           min = 0,
           max = 100,
           title = list(
-            text = "Average Percentage (%)"
+            text = "Average %"
           )
         ) |>
-
         hc_tooltip(
           pointFormat =
             "<b>{point.y:.1f}%</b>"
         ) |>
-
         hc_plotOptions(
           column = list(
             colorByPoint = TRUE,
             dataLabels = list(
               enabled = TRUE,
-              format = "{point.y:.1f}%"
+              format =
+                "{point.y:.1f}%"
             )
           )
         ) |>
-
         hc_add_series(
           name = "Average %",
-          data = avg_scores
+          data = averages
         )
 
     })
@@ -483,43 +556,88 @@ dashboardServer <- function(id, survey_data, tasks) {
 }
 
 ############################################################
-# USER INTERFACE
+# UI
 ############################################################
 
-ui <- fluidPage(
+ui <- dashboardPage(
 
-  useShinyjs(),
-
-  titlePanel(
-    "Task Prioritization Survey"
+  dashboardHeader(
+    title = "Task Prioritization Survey"
   ),
 
-  fluidRow(
+  dashboardSidebar(
 
-    column(
-      width = 4,
+    sidebarMenu(
 
-      taskFormUI("survey")
-    ),
+      menuItem(
+        "Survey",
+        tabName = "survey",
+        icon = icon("edit")
+      ),
 
-    column(
-      width = 8,
+      menuItem(
+        "Results",
+        tabName = "results",
+        icon = icon("bar-chart")
+      )
 
-      dashboardUI("dashboard")
     )
 
-  )
+  ),
 
+  dashboardBody(
+
+    useShinyjs(),
+
+    tabItems(
+
+      ######################################################
+      # Survey Tab
+      ######################################################
+
+      tabItem(
+        tabName = "survey",
+        fluidRow(
+          box(
+            width = 12,
+            title = "Aktiviteter",
+            status = "primary",
+            solidHeader = TRUE,
+            p(
+              "Allocate exactly 100 points across the tasks."
+            ),
+            br(),
+            taskFormUI("survey")
+          )
+        )
+      ),
+
+      ######################################################
+      # Results Tab
+      ######################################################
+
+      tabItem(
+        tabName = "results",
+        resultsDashboardUI(
+          "dashboard"
+        )
+      )
+    )
+  )
 )
 
 ############################################################
 # SERVER
 ############################################################
 
-server <- function(input, output, session) {
+server <- function(
+  input,
+  output,
+  session
+) {
 
   ##########################################################
-  # Poll Google Sheets every 5 seconds
+  # Refresh Google Sheet every 5 seconds
   ##########################################################
 
   survey_data <- reactivePoll(
@@ -539,20 +657,20 @@ server <- function(input, output, session) {
   )
 
   ##########################################################
-  # Task Form Module
+  # Survey Module
   ##########################################################
 
   taskFormServer(
     id = "survey",
-    tasks = df,
+    tasks = task_labels,
     on_submit = save_response
   )
 
   ##########################################################
-  # Dashboard Module
+  # Results Module
   ##########################################################
 
-  dashboardServer(
+  resultsDashboardServer(
     id = "dashboard",
     survey_data = survey_data,
     tasks = tasks
@@ -561,7 +679,10 @@ server <- function(input, output, session) {
 }
 
 ############################################################
-# RUN APPLICATION
+# RUN APP
 ############################################################
 
-shinyApp(ui, server)
+shinyApp(
+  ui = ui,
+  server = server
+)
