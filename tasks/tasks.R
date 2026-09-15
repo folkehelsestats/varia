@@ -1,12 +1,26 @@
+############################################################
+# Task Prioritization Survey
+#
+# Stores data in Google Sheets
+# Displays average scores using highdir
+#
+# Google Sheet columns:
+# ID | Time | Tasks | Scores
+#
+# Worksheet name:
+# tasksavd
+############################################################
+
 library(shiny)
 library(shinyjs)
+library(shinyWidgets)
 library(highcharter)
 library(googlesheets4)
 library(dplyr)
 
-# --------------------------------------------------
+############################################################
 # GOOGLE SHEETS AUTHENTICATION
-# --------------------------------------------------
+############################################################
 
 gs4_auth(
   path = "service-task-survey.json"
@@ -14,261 +28,499 @@ gs4_auth(
 
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 
-# --------------------------------------------------
+############################################################
 # TASKS
-# --------------------------------------------------
+############################################################
 
 tasks <- c(
-  "Task 1",
-  "Task 2",
-  "Task 3",
-  "Task 4",
-  "Task 5",
-  "Task 6",
-  "Task 7",
-  "Task 8"
+  "Planlegging",
+  "Rapportering",
+  "Møte",
+  "Kreativ",
+  "Analyser",
+  "Annen"
 )
 
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
+ttxt <- c(
+  "Planlegging av ting og tang",
+  "Rapportering internasjonal osv.",
+  "Møte virksomhet",
+  "Kreative og innovative arbeid",
+  "Analyser og statistikk",
+  "Alt annen"
+)
+
+df <- setNames(ttxt, tasks)
+
+############################################################
+# GOOGLE SHEETS FUNCTIONS
+############################################################
+
+read_responses <- function() {
+
+  tryCatch({
+
+    read_sheet(
+      ss = sheet_id,
+      sheet = "tasksavd"
+    )
+
+  }, error = function(e) {
+
+    data.frame(
+      ID = character(),
+      Time = character(),
+      Tasks = character(),
+      Scores = numeric()
+    )
+
+  })
+
+}
+
+save_response <- function(scores) {
+
+  response_id <- paste0(
+    as.integer(Sys.time()),
+    "_",
+    sample(100000:999999, 1)
+  )
+
+  submission <- data.frame(
+    ID = response_id,
+    Time = as.character(Sys.time()),
+    Tasks = tasks,
+    Scores = scores,
+    stringsAsFactors = FALSE
+  )
+
+  sheet_append(
+    ss = sheet_id,
+    sheet = "tasksavd",
+    data = submission
+  )
+
+}
+
+############################################################
+# TASK INPUT MODULE
+############################################################
+
+taskFormUI <- function(id) {
+
+  ns <- NS(id)
+
+  tagList(
+
+    uiOutput(ns("task_inputs")),
+
+    br(),
+
+    strong(textOutput(ns("total_text"))),
+
+    br(),
+
+    textOutput(ns("status_text")),
+
+    br(),
+
+    actionButton(
+      ns("reset"),
+      "Reset",
+      class = "btn-warning"
+    ),
+
+    tags$span(" "),
+
+    actionButton(
+      ns("submit"),
+      "Submit",
+      class = "btn-default"
+    )
+
+  )
+
+}
+
+taskFormServer <- function(id, tasks, on_submit) {
+
+  moduleServer(id, function(input, output, session) {
+
+    disable("submit")
+
+    ########################################################
+    # Create task inputs
+    ########################################################
+
+    output$task_inputs <- renderUI({
+
+      tagList(
+
+        lapply(seq_along(tasks), function(i) {
+
+          autonumericInput(
+            inputId = session$ns(paste0("task_", i)),
+            label = unname(tasks)[i],
+
+            value = 0,
+
+            minimumValue = 0,
+
+            decimalPlaces = 0,
+
+            emptyInputBehavior = "zero"
+          )
+
+        })
+
+      )
+
+    })
+
+    ########################################################
+    # Total calculation
+    ########################################################
+
+    total_score <- reactive({
+
+      scores <- sapply(seq_along(tasks), function(i) {
+
+        value <- input[[paste0("task_", i)]]
+
+        if (is.null(value) || is.na(value)) {
+          0
+        } else {
+          value
+        }
+
+      })
+
+      sum(scores)
+
+    })
+
+    ########################################################
+    # Display total
+    ########################################################
+
+    output$total_text <- renderText({
+
+      paste(
+        "Total:",
+        total_score(),
+        "/ 100"
+      )
+
+    })
+
+    ########################################################
+    # Validation message
+    ########################################################
+
+    output$status_text <- renderText({
+
+      if (total_score() < 100) {
+
+        paste(
+          "Remaining points:",
+          100 - total_score()
+        )
+
+      } else if (total_score() > 100) {
+
+        paste(
+          "Too many points:",
+          total_score() - 100
+        )
+
+      } else {
+
+        "Ready to submit"
+
+      }
+
+    })
+
+    ########################################################
+    # Enable submit only when total = 100
+    ########################################################
+
+    observe({
+
+      if (total_score() == 100) {
+
+        enable("submit")
+
+        removeClass("submit", "btn-default")
+
+        addClass("submit", "btn-success")
+
+      } else {
+
+        disable("submit")
+
+        removeClass("submit", "btn-success")
+
+        addClass("submit", "btn-default")
+
+      }
+
+    })
+
+    ########################################################
+    # Reset button
+    ########################################################
+
+    observeEvent(input$reset, {
+
+      for (i in seq_along(tasks)) {
+
+        updateAutonumericInput(
+          session = session,
+          inputId = paste0("task_", i),
+          value = 0
+        )
+
+      }
+
+    })
+
+    ########################################################
+    # Submit
+    ########################################################
+
+    observeEvent(input$submit, {
+
+      scores <- sapply(seq_along(tasks), function(i) {
+
+        value <- input[[paste0("task_", i)]]
+
+        if (is.null(value)) 0 else value
+
+      })
+
+      on_submit(scores)
+
+      showNotification(
+        "Thank you for your response.",
+        type = "message"
+      )
+
+      for (i in seq_along(tasks)) {
+
+        updateAutonumericInput(
+          session,
+          inputId = paste0("task_", i),
+          value = 0
+        )
+
+      }
+
+    })
+
+  })
+
+}
+
+############################################################
+# DASHBOARD MODULE
+############################################################
+
+dashboardUI <- function(id) {
+
+  ns <- NS(id)
+
+  tagList(
+
+    strong(
+      textOutput(ns("respondent_count"))
+    ),
+
+    br(),
+    br(),
+
+    highchartOutput(
+      ns("chart"),
+      height = "600px"
+    )
+
+  )
+
+}
+
+dashboardServer <- function(id, survey_data, tasks) {
+
+  moduleServer(id, function(input, output, session) {
+
+    ########################################################
+    # Respondent count
+    ########################################################
+
+    respondent_count <- reactive({
+
+      df <- survey_data()
+
+      if (nrow(df) == 0) {
+        return(0)
+      }
+
+      n_distinct(df$ID)
+
+    })
+
+    output$respondent_count <- renderText({
+
+      paste(
+        "Number of respondents:",
+        respondent_count()
+      )
+
+    })
+
+    ########################################################
+    # Highcharter plot
+    ########################################################
+
+    output$chart <- renderHighchart({
+
+      df <- survey_data()
+
+      if (nrow(df) == 0) {
+
+        avg_scores <- rep(0, length(tasks))
+
+      } else {
+
+        df$Scores <- as.numeric(df$Scores)
+
+        summary_df <- df %>%
+          group_by(Tasks) %>%
+          summarise(
+            total_score = sum(Scores, na.rm = TRUE),
+            .groups = "drop"
+          )
+
+        summary_df <- merge(
+          data.frame(Tasks = tasks),
+          summary_df,
+          by = "Tasks",
+          all.x = TRUE
+        )
+
+        summary_df$total_score[
+          is.na(summary_df$total_score)
+        ] <- 0
+
+        respondents <- respondent_count()
+
+        if (respondents == 0) {
+
+          avg_scores <- rep(0, length(tasks))
+
+        } else {
+
+          avg_scores <- round(
+            summary_df$total_score /
+              respondents,
+            1
+          )
+
+        }
+
+      }
+
+      highchart() |>
+
+        hc_chart(type = "column") |>
+
+        hc_title(
+          text = "Average Task Prioritization"
+        ) |>
+
+        hc_subtitle(
+          text = paste(
+            "Respondents:",
+            respondent_count()
+          )
+        ) |>
+
+        hc_xAxis(
+          categories = tasks
+        ) |>
+
+        hc_yAxis(
+          min = 0,
+          max = 100,
+          title = list(
+            text = "Average Percentage (%)"
+          )
+        ) |>
+
+        hc_tooltip(
+          pointFormat =
+            "<b>{point.y:.1f}%</b>"
+        ) |>
+
+        hc_plotOptions(
+          column = list(
+            colorByPoint = TRUE,
+            dataLabels = list(
+              enabled = TRUE,
+              format = "{point.y:.1f}%"
+            )
+          )
+        ) |>
+
+        hc_add_series(
+          name = "Average %",
+          data = avg_scores
+        )
+
+    })
+
+  })
+
+}
+
+############################################################
+# USER INTERFACE
+############################################################
 
 ui <- fluidPage(
 
   useShinyjs(),
 
-  titlePanel("Task Prioritization"),
-
-  h4("Distribute exactly 100 points across the tasks"),
+  titlePanel(
+    "Task Prioritization Survey"
+  ),
 
   fluidRow(
 
     column(
       width = 4,
 
-      uiOutput("task_inputs"),
-
-      br(),
-
-      strong(textOutput("total_text")),
-
-      textOutput("status_text"),
-
-      br(),
-
-      actionButton(
-        "reset_btn",
-        "Reset Scores",
-        class = "btn-warning"
-      ),
-
-      tags$span(" "),
-
-      actionButton(
-        "submit_btn",
-        "Submit",
-        class = "btn-default"
-      ),
-
-      br(),
-      br(),
-
-      strong(textOutput("respondents_text"))
+      taskFormUI("survey")
     ),
 
     column(
       width = 8,
 
-      highchartOutput(
-        "priority_chart",
-        height = "600px"
-      )
+      dashboardUI("dashboard")
     )
+
   )
+
 )
 
-# --------------------------------------------------
+############################################################
 # SERVER
-# --------------------------------------------------
+############################################################
 
 server <- function(input, output, session) {
 
-  disable("submit_btn")
-
-  # ----------------------------------------------
-  # Dynamic task inputs
-  # ----------------------------------------------
-
-  output$task_inputs <- renderUI({
-
-    tagList(
-
-      lapply(seq_along(tasks), function(i) {
-
-        numericInput(
-          inputId = paste0("task_", i),
-          label = tasks[i],
-          value = 0,
-          min = 0,
-          step = 1
-        )
-
-      })
-
-    )
-
-  })
-
-  # ----------------------------------------------
-  # Total points
-  # ----------------------------------------------
-
-  total_points <- reactive({
-
-    vals <- sapply(seq_along(tasks), function(i) {
-
-      x <- input[[paste0("task_", i)]]
-
-      if (is.null(x) || is.na(x) || x < 0) {
-        0
-      } else {
-        x
-      }
-
-    })
-
-    sum(vals)
-
-  })
-
-  # ----------------------------------------------
-  # Display total
-  # ----------------------------------------------
-
-  output$total_text <- renderText({
-    paste("Total:", total_points(), "/ 100")
-  })
-
-  # ----------------------------------------------
-  # Status text
-  # ----------------------------------------------
-
-  output$status_text <- renderText({
-
-    if (total_points() < 100) {
-
-      paste(
-        "Remaining points:",
-        100 - total_points()
-      )
-
-    } else if (total_points() > 100) {
-
-      paste(
-        "Too many points:",
-        total_points() - 100
-      )
-
-    } else {
-
-      "Ready to submit"
-
-    }
-
-  })
-
-  # ----------------------------------------------
-  # Enable submit only when total = 100
-  # ----------------------------------------------
-
-  observe({
-
-    if (total_points() == 100) {
-
-      enable("submit_btn")
-
-      removeClass("submit_btn", "btn-default")
-      addClass("submit_btn", "btn-success")
-
-    } else {
-
-      disable("submit_btn")
-
-      removeClass("submit_btn", "btn-success")
-      addClass("submit_btn", "btn-default")
-
-    }
-
-  })
-
-  # ----------------------------------------------
-  # Reset button
-  # ----------------------------------------------
-
-  observeEvent(input$reset_btn, {
-
-    for (i in seq_along(tasks)) {
-
-      updateNumericInput(
-        session,
-        paste0("task_", i),
-        value = 0
-      )
-
-    }
-
-  })
-
-  # ----------------------------------------------
-  # Submit responses
-  # ----------------------------------------------
-
-  observeEvent(input$submit_btn, {
-
-    response_id <- paste0(
-      as.integer(Sys.time()),
-      "_",
-      sample(100000:999999, 1)
-    )
-
-    scores <- sapply(seq_along(tasks), function(i) {
-      input[[paste0("task_", i)]]
-    })
-
-    submission <- data.frame(
-      response_id = response_id,
-      timestamp = Sys.time(),
-      task = tasks,
-      score = scores
-    )
-
-    sheet_append(
-      ss = sheet_id,
-      sheet = "tasksavd",
-      data = submission
-    )
-
-    showNotification(
-      "Response submitted successfully.",
-      type = "message",
-      duration = 3
-    )
-
-    for (i in seq_along(tasks)) {
-
-      updateNumericInput(
-        session,
-        paste0("task_", i),
-        value = 0
-      )
-
-    }
-
-  })
-
-  # ----------------------------------------------
-  # Read all responses
-  # ----------------------------------------------
+  ##########################################################
+  # Poll Google Sheets every 5 seconds
+  ##########################################################
 
   survey_data <- reactivePoll(
 
@@ -281,150 +533,35 @@ server <- function(input, output, session) {
     },
 
     valueFunc = function() {
-
-      tryCatch({
-
-        read_sheet(
-          sheet_id,
-          sheet = "tasksavd",
-          col_types = "cccc"
-        )
-
-      }, error = function(e) {
-
-        data.frame(
-          response_id = character(),
-          timestamp = character(),
-          task = character(),
-          score = numeric()
-        )
-
-      })
+      read_responses()
     }
+
   )
 
-  # ----------------------------------------------
-  # Number of respondents
-  # ----------------------------------------------
+  ##########################################################
+  # Task Form Module
+  ##########################################################
 
-  respondent_count <- reactive({
+  taskFormServer(
+    id = "survey",
+    tasks = df,
+    on_submit = save_response
+  )
 
-    df <- survey_data()
+  ##########################################################
+  # Dashboard Module
+  ##########################################################
 
-    if (nrow(df) == 0) {
-      return(0)
-    }
-
-    dplyr::n_distinct(df$response_id)
-
-  })
-
-  output$respondents_text <- renderText({
-
-    paste(
-      "Number of respondents:",
-      respondent_count()
-    )
-
-  })
-
-  # ----------------------------------------------
-  # Highcharter graph
-  # ----------------------------------------------
-
-  output$priority_chart <- renderHighchart({
-
-    df <- survey_data()
-
-    if (nrow(df) == 0) {
-
-      avg_scores <- rep(0, length(tasks))
-
-    } else {
-
-      df$score <- as.numeric(df$score)
-
-      respondents <- respondent_count()
-
-      summary_df <- df %>%
-        group_by(task) %>%
-        summarise(
-          total_score = sum(score, na.rm = TRUE),
-          .groups = "drop"
-        )
-
-      summary_df <- merge(
-        data.frame(task = tasks),
-        summary_df,
-        by = "task",
-        all.x = TRUE
-      )
-
-      summary_df$total_score[
-        is.na(summary_df$total_score)
-      ] <- 0
-
-      avg_scores <-
-        round(
-          summary_df$total_score / respondents,
-          1
-        )
-
-    }
-
-    highchart() |>
-
-      hc_chart(type = "column") |>
-
-      hc_title(
-        text = "Average Priority Scores"
-      ) |>
-
-      hc_subtitle(
-        text = paste(
-          "Respondents:",
-          respondent_count()
-        )
-      ) |>
-
-      hc_xAxis(
-        categories = tasks
-      ) |>
-
-      hc_yAxis(
-        min = 0,
-        max = 100,
-        title = list(
-          text = "Average Percentage (%)"
-        )
-      ) |>
-
-      hc_tooltip(
-        pointFormat =
-          "<b>{point.y:.1f}%</b><br/>Average score across respondents"
-      ) |>
-
-      hc_plotOptions(
-        column = list(
-          dataLabels = list(
-            enabled = TRUE,
-            format = "{point.y:.1f}%"
-          )
-        )
-      ) |>
-
-      hc_add_series(
-        name = "Average %",
-        data = avg_scores,
-        colorByPoint = TRUE
-      )
-
-  })
+  dashboardServer(
+    id = "dashboard",
+    survey_data = survey_data,
+    tasks = tasks
+  )
 
 }
 
-# --------------------------------------------------
-# START APP
-# --------------------------------------------------
+############################################################
+# RUN APPLICATION
+############################################################
 
 shinyApp(ui, server)
