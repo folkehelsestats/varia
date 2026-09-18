@@ -38,27 +38,55 @@ sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 ############################################################
 
 tasks <- c(
-  "Planlegging",
+  "Statistikkarbeid",
   "Rapportering",
-  "Møte",
-  "Kreativ",
-  "Analyser",
-  "Annen"
+  "Samarbeid",
+  "Utviklingsarbeid",
+  "Koordinering",
+  "Kompetanseutvikling",
+  "Kunnskapsinnhenting",
+  "Annet"
 )
 
 task_text <- c(
-  "Planlegging av ting og tang",
-  "Rapportering internasjonal osv.",
-  "Møte virksomhet",
-  "Kreative og innovative arbeid",
-  "Analyser og statistikk",
-  "Alt annen"
+  "Tilrettelegging, kvalitetssikring og analyse av mottatte data for statistikkproduksjon.",
+  "Utarbeidelse, publisering og formidling av statistikk, analyser og andre resultater.",
+  "Faglig støtte, rådgivning og samarbeid med brukere og eksterne aktører.",
+  "Utvikling av nye løsninger, metoder, systemer og gjennomføring av prosjekter.",
+  "Planlegging, koordinering og oppfølging av aktiviteter, møter og beslutninger.",
+  "Deltakelse i kurs, opplæring og andre aktiviteter for faglig utvikling.",
+  "Innhenting og vurdering av fagkunnskap, metoder og relevant informasjon.",
+  "Andre arbeidsoppgaver som ikke passer naturlig inn i kategoriene ovenfor."
 )
+
 
 task_labels <- setNames(
   task_text,
   tasks
 )
+
+############################################################
+# TOOLTIP HELPER
+############################################################
+
+# Creates a polished Bootstrap tooltip for each task label.
+task_tooltip <- function(task, description) {
+
+  tags$span(
+    class = "task-label-tooltip",
+    task,
+    tags$i(
+      class = "fa fa-info-circle task-info-icon",
+      `aria-hidden` = "true"
+    ),
+    `data-toggle` = "tooltip",
+    `data-placement` = "right",
+    `data-container` = "body",
+    `data-html` = "false",
+    title = description
+  )
+
+}
 
 ############################################################
 # GOOGLE SHEETS FUNCTIONS
@@ -138,7 +166,7 @@ taskFormUI <- function(id) {
 
     actionButton(
       ns("reset"),
-      "Reset",
+      "Nullstille",
       class = "btn-warning"
     ),
 
@@ -146,7 +174,7 @@ taskFormUI <- function(id) {
 
     actionButton(
       ns("submit"),
-      "Submit",
+      "Send",
       class = "submit-notready"
     )
 
@@ -186,7 +214,10 @@ taskFormServer <- function(
             inputId = session$ns(
               paste0("task_", i)
             ),
-            label = unname(tasks)[i],
+            label = task_tooltip(
+              task = names(tasks)[i],
+              description = unname(tasks)[i]
+            ),
             value = 0,
             minimumValue = 0,
             decimalPlaces = 0,
@@ -249,20 +280,20 @@ taskFormServer <- function(
       if (total_score() < 100) {
 
         paste(
-          "Remaining points:",
+          "Tilgjengelig skåre:",
           100 - total_score()
         )
 
       } else if (total_score() > 100) {
 
         paste(
-          "Too many points:",
+          "Mer enn 100 skåre:",
           total_score() - 100
         )
 
       } else {
 
-        "Ready to submit"
+        "Klar til å sende"
 
       }
 
@@ -355,7 +386,7 @@ taskFormServer <- function(
       on_submit(scores)
 
       showNotification(
-        "Thank you for your response.",
+        "Ditt svar er nå sendt.",
         type = "message"
       )
 
@@ -458,7 +489,7 @@ resultsDashboardServer <- function(
 
       valueBox(
         value = respondent_count(),
-        subtitle = "Respondents",
+        subtitle = "Antall svar",
         icon = icon("users"),
         color = "blue"
       )
@@ -533,7 +564,7 @@ resultsDashboardServer <- function(
           type = "column"
         ) |>
         hc_title(
-          text = "Average Task Priority"
+          text = "Aktiviteter og tidsbruk"
         ) |>
         hc_subtitle(
           text = paste(
@@ -548,7 +579,7 @@ resultsDashboardServer <- function(
           min = 0,
           max = 100,
           title = list(
-            text = "Average %"
+            text = "Gjennomsnitt %"
           )
         ) |>
         hc_tooltip(
@@ -566,7 +597,7 @@ resultsDashboardServer <- function(
           )
         ) |>
         hc_add_series(
-          name = "Average %",
+          name = "Gjennomsnitt %",
           data = averages
         )
 
@@ -583,7 +614,7 @@ resultsDashboardServer <- function(
 ui <- dashboardPage(
 
   dashboardHeader(
-    title = "Task Prioritization Survey"
+    title = "Tidsbruk"
   ),
 
   dashboardSidebar(
@@ -591,13 +622,13 @@ ui <- dashboardPage(
     sidebarMenu(
 
       menuItem(
-        "Survey",
+        "Aktiviteter",
         tabName = "survey",
         icon = icon("edit")
       ),
 
       menuItem(
-        "Results",
+        "Oversikt",
         tabName = "results",
         icon = icon("bar-chart")
       )
@@ -614,6 +645,41 @@ ui <- dashboardPage(
 
         tags$style(HTML("
 
+      /* Polished task tooltip styling */
+      .task-label-tooltip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: help;
+        color: #333333;
+        border-bottom: 1px dotted #337ab7;
+        transition: color 0.15s ease, border-color 0.15s ease;
+      }
+
+      .task-label-tooltip:hover,
+      .task-label-tooltip:focus {
+        color: #337ab7;
+        border-bottom-color: #337ab7;
+      }
+
+      .task-info-icon {
+        color: #337ab7;
+        font-size: 0.9em;
+      }
+
+      .tooltip {
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .tooltip-inner {
+        max-width: 360px;
+        padding: 10px 12px;
+        text-align: left;
+        border-radius: 6px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+      }
+
       .submit-ready {
         background-color: #28a745 !important;
         border-color: #28a745 !important;
@@ -626,7 +692,9 @@ ui <- dashboardPage(
         color: white !important;
       }
 
-    "))
+    ")),
+
+       tags$script(HTML("$(document).on('shiny:connected', function() { $('[data-toggle=\"tooltip\"]').tooltip({ trigger: 'hover focus', container: 'body' }); }); $(document).on('shiny:value shiny:bound', function() { $('[data-toggle=\"tooltip\"]').tooltip({ trigger: 'hover focus', container: 'body' }); });"))
 
     ),
 
@@ -641,12 +709,12 @@ ui <- dashboardPage(
       fluidRow(
         box(
           width = 12,
-          title = "Aktiviteter",
+          title = "Aktiviteter (summen skal være 100)",
           status = "primary",
           solidHeader = TRUE,
-          p(
-            "Allocate exactly 100 points across the tasks."
-          ),
+#           p(
+#             "Allocate exactly 100 points across the tasks."
+#           ),
           br(),
           taskFormUI("survey")
         )
