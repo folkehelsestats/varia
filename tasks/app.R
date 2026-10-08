@@ -1,8 +1,9 @@
 ############################################################
 # Task Prioritization Survey
 #
-# Stores responses in Google Sheets
+# Stores responses in Google Sheets in ybkamaleri user
 # Displays average task priorities in a Shinydashboard
+# https://folkehelsestats-seminar.share.connect.posit.cloud/
 #
 # Google Sheet columns:
 # ID | Time | Tasks | Scores
@@ -22,6 +23,7 @@ library(shinyWidgets)
 library(highcharter)
 library(googlesheets4)
 library(dplyr)
+library(rio)
 
 ############################################################
 # GOOGLE SHEETS AUTHENTICATION
@@ -37,28 +39,32 @@ sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 # TASK DEFINITIONS
 ############################################################
 
-tasks <- c(
-  "Statistikkarbeid",
-  "Rapportering",
-  "Samarbeid",
-  "Utviklingsarbeid",
-  "Koordinering",
-  "Kompetanseutvikling",
-  "Kunnskapsinnhenting",
-  "Annet"
-)
+# tasks <- c(
+#   "Statistikkarbeid",
+#   "Rapportering",
+#   "Samarbeid",
+#   "Utviklingsarbeid",
+#   "Koordinering",
+#   "Kompetanseutvikling",
+#   "Kunnskapsinnhenting",
+#   "Annet"
+# )
 
-task_text <- c(
-  "Tilrettelegging, kvalitetssikring og analyse av mottatte data for statistikkproduksjon.",
-  "Utarbeidelse, publisering og formidling av statistikk, analyser og andre resultater.",
-  "Faglig støtte, rådgivning og samarbeid med brukere og eksterne aktører.",
-  "Utvikling av nye løsninger, metoder, systemer og gjennomføring av prosjekter.",
-  "Planlegging, koordinering og oppfølging av aktiviteter, møter og beslutninger.",
-  "Deltakelse i kurs, opplæring og andre aktiviteter for faglig utvikling.",
-  "Innhenting og vurdering av fagkunnskap, metoder og relevant informasjon.",
-  "Andre arbeidsoppgaver som ikke passer naturlig inn i kategoriene ovenfor."
-)
+# task_text <- c(
+#   "Tilrettelegging, kvalitetssikring og analyse av mottatte data for statistikkproduksjon.",
+#   "Utarbeidelse, publisering og formidling av statistikk, analyser og andre resultater.",
+#   "Faglig støtte, rådgivning og samarbeid med brukere og eksterne aktører.",
+#   "Utvikling av nye løsninger, metoder, systemer og gjennomføring av prosjekter.",
+#   "Planlegging, koordinering og oppfølging av aktiviteter, møter og beslutninger.",
+#   "Deltakelse i kurs, opplæring og andre aktiviteter for faglig utvikling.",
+#   "Innhenting og vurdering av fagkunnskap, metoder og relevant informasjon.",
+#   "Andre arbeidsoppgaver som ikke passer naturlig inn i kategoriene ovenfor."
+# )
 
+txt <- rio::import("tasks.xlsx")
+
+tasks <- txt$tasks
+task_text <- txt$task_text
 
 task_labels <- setNames(
   task_text,
