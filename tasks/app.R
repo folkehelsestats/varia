@@ -39,26 +39,27 @@ sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 # TASK DEFINITIONS
 ############################################################
 
-# tasks <- c(
-#   "Statistikkarbeid",
-#   "Rapportering",
-#   "Samarbeid",
-#   "Utviklingsarbeid",
-#   "Koordinering",
-#   "Kompetanseutvikling",
-#   "Kunnskapsinnhenting",
-#   "Annet"
-# )
+# tasks <-
+#   c("Statistikk og analysearbeid",
+#     "Publisering og formidling",
+#     "Kompetanse og utviklingsarbeid",
+#     "Kunnskapsinnhenting",
+#     "Ad hoc-henvendelser og brannslukking​",
+#     "Faglige diskusjoner og møter",
+#     "Mindre nyttige møter og arbeid",
+#     "Administrasjon og rapportering",
+#     "Annet")
 
-# task_text <- c(
-#   "Tilrettelegging, kvalitetssikring og analyse av mottatte data for statistikkproduksjon.",
-#   "Utarbeidelse, publisering og formidling av statistikk, analyser og andre resultater.",
-#   "Faglig støtte, rådgivning og samarbeid med brukere og eksterne aktører.",
-#   "Utvikling av nye løsninger, metoder, systemer og gjennomføring av prosjekter.",
-#   "Planlegging, koordinering og oppfølging av aktiviteter, møter og beslutninger.",
-#   "Deltakelse i kurs, opplæring og andre aktiviteter for faglig utvikling.",
-#   "Innhenting og vurdering av fagkunnskap, metoder og relevant informasjon.",
-#   "Andre arbeidsoppgaver som ikke passer naturlig inn i kategoriene ovenfor."
+# task_text <-
+# c("Tilrettelegging, kvalitetssikring, utarbeidelse og analyse av mottatte data",
+# "Publisering og formidling av statistikk, analyser og andre resultater.",
+# "Utvikling av nye løsninger, metoder og systemer/ deltakelse i kurs, opplæring og andre aktiviteter for faglig utvikling.",
+# "Innhenting og vurdering av fagkunnskap, metoder og relevant informasjon.",
+# "Svare på henvendelser, feilrettinger, tekniske utfordringer +++",
+# "Diskusjoner/møter som gir faglig nytte, styrker samarbeid eller bidrar til framdrift i arbeidet.",
+# "Deltakelse i møter som i mindre grad oppleves å gi faglig nytte eller bidrar til framdrift i arbeidet.",
+# "Planlegging, koordinering og oppfølging av aktiviteter, møter og beslutninger.",
+# "Andre arbeidsoppgaver som ikke passer naturlig inn i kategoriene ovenfor."
 # )
 
 txt <- rio::import("tasks.xlsx")
@@ -531,14 +532,18 @@ resultsDashboardServer <- function(
             .groups = "drop"
           )
 
-        summary_df <- merge(
-          data.frame(
-            Tasks = tasks
-          ),
-          summary_df,
-          by = "Tasks",
-          all.x = TRUE
-        )
+#         summary_df <- merge(
+#           data.frame(
+#             Tasks = tasks
+#           ),
+#           summary_df,
+#           by = "Tasks",
+#           all.x = TRUE,
+#           sort = FALSE
+#         )
+
+        summary_df <- data.frame(Tasks = tasks) %>%
+          dplyr::left_join(summary_df, by = "Tasks")
 
         summary_df$total_score[
           is.na(summary_df$total_score)
