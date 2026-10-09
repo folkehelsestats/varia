@@ -426,6 +426,18 @@ resultsDashboardUI <- function(id) {
   ns <- NS(id)
 
   tagList(
+    fluidRow(
+
+      column(
+        12,
+        actionButton(
+          ns("toggle_refresh"),
+          "Pause oppdatering",
+          icon = icon("pause")
+        )
+      )
+
+    ),
 
     fluidRow(
 
@@ -472,13 +484,76 @@ resultsDashboardServer <- function(
                             session
                             ) {
 
+
+    ########################################################
+    # Refresh control
+    ########################################################
+
+    refresh_enabled <- reactiveVal(TRUE)
+
+    display_data <- reactiveVal(data.frame())
+
+    observeEvent(
+      survey_data(),
+      {
+        if (refresh_enabled()) {
+          display_data(survey_data())
+        }
+      }
+    )
+
+    #     observe({
+    #       req(refresh_enabled())
+    #       display_data(
+    #         survey_data()
+    #       )
+    #     })
+
+    observeEvent(input$toggle_refresh, {
+
+      refresh_enabled(
+        !refresh_enabled()
+      )
+
+      if (refresh_enabled()) {
+
+        updateActionButton(
+          session,
+          "toggle_refresh",
+          label = "Pause oppdatering",
+          icon = icon("pause")
+        )
+
+        showNotification(
+          "Automatisk oppdatering aktivert",
+          type = "message"
+        )
+
+      } else {
+
+        updateActionButton(
+          session,
+          "toggle_refresh",
+          label = "Fortsett oppdatering",
+          icon = icon("play")
+        )
+
+        showNotification(
+          "Automatisk oppdatering stoppet",
+          type = "warning"
+        )
+
+      }
+
+    })
+
     ########################################################
     # Count respondents
     ########################################################
 
     respondent_count <- reactive({
 
-      df <- survey_data()
+      df <- display_data()
 
       if (nrow(df) == 0) {
         return(0)
@@ -509,7 +584,7 @@ resultsDashboardServer <- function(
 
     output$main_chart <- renderHighchart({
 
-      df <- survey_data()
+      df <- display_data()
 
       if (nrow(df) == 0) {
 
