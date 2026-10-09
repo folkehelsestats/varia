@@ -20,7 +20,6 @@ googlesheets4::gs4_auth(
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
 worksheet_name <- "words"
 
-
 ############################################################
 # STOP WORDS
 ############################################################
@@ -93,7 +92,7 @@ validate_word <- function(word) {
 
     return(list(
       valid = FALSE,
-      message = "Kun et ord tillat!"
+      message = "Kun ett ord tillatt."
     ))
   }
 
@@ -115,7 +114,7 @@ validate_word <- function(word) {
 
     return(list(
       valid = FALSE,
-      message = "Maksumum er 30 karakter."
+      message = "Maksimum 30 tegn."
     ))
   }
 
@@ -125,7 +124,7 @@ validate_word <- function(word) {
 
     return(list(
       valid = FALSE,
-      message = "Vanlige stoppeord ikke tillat."
+      message = "Vanlige stoppeord er ikke tillatt."
     ))
   }
 
@@ -173,7 +172,7 @@ reset_responses <- function() {
 }
 
 ############################################################
-# READ WORDS AND CALCULATE FREQUENCIES
+# READ WORDS
 ############################################################
 
 get_word_counts <- function() {
@@ -188,7 +187,7 @@ get_word_counts <- function() {
   if (nrow(dt) == 0) {
 
     return(
-      data.table(
+      data.table::data.table(
         name = character(),
         weight = numeric()
       )
@@ -207,7 +206,7 @@ get_word_counts <- function() {
   if (nrow(dt) == 0) {
 
     return(
-      data.table(
+      data.table::data.table(
         name = character(),
         weight = numeric()
       )
@@ -239,6 +238,24 @@ ui <- fluidPage(
 
   shinyjs::useShinyjs(),
 
+  shinyjs::extendShinyjs(
+    text = "
+      shinyjs.bindEnter = function() {
+
+        $('#word').keypress(function(e) {
+
+          if (e.which == 13) {
+
+            $('#send_word').click();
+
+            return false;
+          }
+        });
+      }
+    ",
+    functions = "bindEnter"
+  ),
+
   tags$head(
 
     tags$script(
@@ -253,7 +270,7 @@ ui <- fluidPage(
   tabsetPanel(
 
     ########################################################
-    # SUBMIT TAB
+    # INPUT TAB
     ########################################################
 
     tabPanel(
@@ -274,7 +291,7 @@ ui <- fluidPage(
             placeholder = "avdelingen"
           ),
 
-          shinyWidgets::actionBttn(
+          actionBttn(
             inputId = "send_word",
             label = "Send",
             style = "material-flat",
@@ -333,27 +350,30 @@ ui <- fluidPage(
 
           actionButton(
             "pause_updates",
-            "Pause Updates",
+            "Pause updates",
             class = "btn-warning"
           ),
 
-          br(), br(),
+          br(),
+          br(),
 
           actionButton(
             "resume_updates",
-            "Resume Updates",
+            "Resume updates",
             class = "btn-success"
           ),
 
-          br(), br(),
+          br(),
+          br(),
 
           actionButton(
             "reset_sheet",
-            "Reset Responses",
+            "Reset responses",
             class = "btn-danger"
           ),
 
-          br(), br(),
+          br(),
+          br(),
 
           verbatimTextOutput(
             "admin_status"
@@ -375,10 +395,17 @@ server <- function(
 ) {
 
   ##########################################################
-  # STATUS MESSAGES
+  # ENABLE ENTER KEY
+  ##########################################################
+
+  shinyjs::js$bindEnter()
+
+  ##########################################################
+  # STATUS
   ##########################################################
 
   status_message <- reactiveVal("")
+
   admin_message <- reactiveVal(
     "Updates are running."
   )
@@ -392,30 +419,47 @@ server <- function(
   })
 
   ##########################################################
-  # SESSION-ONLY PAUSE FLAG
+  # SESSION UPDATE FLAG
   ##########################################################
 
   updates_enabled <- reactiveVal(TRUE)
 
   ##########################################################
-  # SUBMIT WORD
+  # CACHE WORD DATA
   ##########################################################
 
-  observeEvent(input$send_word, {
+  cached_words <- reactiveVal(
 
-    validation <- validate_word(
-      input$word
+    data.table::data.table(
+      name = character(),
+      weight = numeric()
+    )
+  )
+
+  ##########################################################
+  # INITIAL LOAD
+  ##########################################################
+
+  try({
+
+    cached_words(
+      get_word_counts()
     )
 
-    if (!validation$valid) {
+  }, silent = TRUE)
 
-      status_message(
-        paste(
-          "❌",
-          validation$message
-        )
-      )
+  ##########################################################
+  # REFRESH GOOGLE SHEET
+  ##########################################################
 
+  observe({
+
+    invalidateLater(
+      3000,
+      session
+    )
+
+    if (!updates_enabled()) {
       return()
     }
 
@@ -423,39 +467,90 @@ server <- function(
 
       {
 
-        append_word(
-          validation$word
-        )
+        latest_words <- get_word_counts()
 
-        status_message(
-          paste(
-            "✅ Submitted:",
-            validation$word
-          )
-        )
-
-        updateTextInput(
-          session,
-          "word",
-          value = ""
+        cached_words(
+          latest_words
         )
 
       },
 
       error = function(e) {
 
-        status_message(
-          paste(
-            "❌",
-            e$message
-          )
+        message(
+          "Refresh error: ",
+          e$message
         )
       }
     )
   })
 
   ##########################################################
-  # PAUSE UPDATES
+  # SUBMIT WORD
+  ##########################################################
+
+  observeEvent(
+    input$send_word,
+    {
+
+      validation <- validate_word(
+        input$word
+      )
+
+      if (!validation$valid) {
+
+        status_message(
+          paste(
+            "❌",
+            validation$message
+          )
+        )
+
+        return()
+      }
+
+      tryCatch(
+
+        {
+
+          append_word(
+            validation$word
+          )
+
+          status_message(
+            paste(
+              "✅ Sendt:",
+              validation$word
+            )
+          )
+
+          updateTextInput(
+            session,
+            "word",
+            value = ""
+          )
+
+          shinyjs::runjs(
+            "$('#word').focus();"
+          )
+
+        },
+
+        error = function(e) {
+
+          status_message(
+            paste(
+              "❌",
+              e$message
+            )
+          )
+        }
+      )
+    }
+  )
+
+  ##########################################################
+  # PAUSE
   ##########################################################
 
   observeEvent(
@@ -465,13 +560,13 @@ server <- function(
       updates_enabled(FALSE)
 
       admin_message(
-        "Updates paused for this session."
+        "Oppdateringer stoppet for denne sesjonen."
       )
     }
   )
 
   ##########################################################
-  # RESUME UPDATES
+  # RESUME
   ##########################################################
 
   observeEvent(
@@ -481,13 +576,13 @@ server <- function(
       updates_enabled(TRUE)
 
       admin_message(
-        "Updates resumed."
+        "Oppdateringer gjenopptatt."
       )
     }
   )
 
   ##########################################################
-  # RESET SHEET
+  # RESET
   ##########################################################
 
   observeEvent(
@@ -500,8 +595,15 @@ server <- function(
 
           reset_responses()
 
+          cached_words(
+            data.table::data.table(
+              name = character(),
+              weight = numeric()
+            )
+          )
+
           admin_message(
-            "Responses cleared."
+            "Alle ord er slettet."
           )
 
         },
@@ -510,7 +612,7 @@ server <- function(
 
           admin_message(
             paste(
-              "Reset failed:",
+              "Feil:",
               e$message
             )
           )
@@ -520,56 +622,40 @@ server <- function(
   )
 
   ##########################################################
-  # POLL GOOGLE SHEET
-  ##########################################################
-
-  words_reactive <- reactivePoll(
-
-    intervalMillis = 3000,
-
-    session = session,
-
-    checkFunc = function() {
-
-      if (!updates_enabled()) {
-        return("paused")
-      }
-
-      as.numeric(Sys.time()) %/% 3
-    },
-
-    valueFunc = function() {
-
-      get_word_counts()
-    }
-  )
-
-  ##########################################################
   # WORD CLOUD
   ##########################################################
 
   output$wordcloud <- renderHighchart({
 
-    req(nrow(words_reactive()) >= 0)
+    freq <- cached_words()
 
     highcharter::highchart() |>
 
-      highcharter::hc_title(
-        text = "Folkehelsestatistikk"
-      ) |>
+  highcharter::hc_title(
+    text = "Folkehelsestatistikk"
+  ) |>
 
-      highcharter::hc_add_series(
-        data = highcharter::list_parse(
-          words_reactive()
-        ),
-        type = "wordcloud",
-        name = "Words",
-        spira = "archimedean"
-      ) |>
+  highcharter::hc_add_series(
+    data = highcharter::list_parse(freq),
+    type = "wordcloud",
+    name = "Ord",
+    spiral = "archimedean"
+  ) |>
 
-      highcharter::hc_credits(
-        enabled = FALSE
-      )
+  highcharter::hc_credits(
+    enabled = FALSE
+  ) |>
+
+  highcharter::hc_tooltip(
+    useHTML = TRUE,
+    headerFormat = "",
+    pointFormat = paste0(
+      "<div style='padding:5px;'>",
+      "<span style='font-size:16px;'><b>{point.name}</b></span><br>",
+      "<span>Forekomster: <b>{point.weight}</b></span>",
+      "</div>"
+    )
+  )
   })
 }
 
