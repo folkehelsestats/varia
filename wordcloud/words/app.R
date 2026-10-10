@@ -107,18 +107,18 @@ ui <- fluidPage(
     "Avd. folkehelsestatistikk",
     style = "
     color: #025169;
-    font-weight: 450;
+    font-size: 35px;
     margin-bottom: 5px;
   "
   ),
 
   h4(
-    "Beskrev hvem vi er..",
-    style = "color: #025169; text-align: left; margin-top: -10px;"
+    "Beskrev hvem er vi...",
+    style = "color: #0069E8; text-align: left; margin-top: -10px;"
   ),
 
   p(
-    "Skriv så mange ord du vil, men kun ett ord om gangen",
+    "Bruk så mange ord du vil, men kun ett ord om gangen",
     style = "font-size: 16px; text-align: left;"
   ),
 

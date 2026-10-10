@@ -18,7 +18,7 @@ rsconnect::deployApp(
 
 library(qrcode)
 
-words <- "https://folkehelsestats-words.share.connect.posit.cloud/"
+words <- "http://ybkamaleri.shinyapps.io/words"
 qr_code(words) |>
   generate_svg(
     "qrcode/qrcode-words.svg",
