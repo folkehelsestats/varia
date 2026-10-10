@@ -2,8 +2,8 @@
 
 This folder contains two independent Shiny apps:
 
-- `word_input_app/app.R`: accepts one word at a time and appends it to Google Sheets.
-- `wordcloud_display_app/app.R`: displays the word cloud and has Pause/Resume controls for polling.
+- `words/app.R`: accepts one word at a time and appends it to Google Sheets.
+- `wordcloud/app.R`: displays the word cloud and has Pause/Resume controls for polling.
 
 ## Setup
 
@@ -28,8 +28,8 @@ This folder contains two independent Shiny apps:
 4. Start each app separately, in separate R sessions/terminals:
 
    ```r
-   shiny::runApp("word_input_app")
-   shiny::runApp("wordcloud_display_app")
+   shiny::runApp("words")
+   shiny::runApp("wordcloud")
    ```
 
    You can also set the working directory to either app folder and run
