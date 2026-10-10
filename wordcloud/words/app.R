@@ -107,7 +107,7 @@ ui <- fluidPage(
     "Avd. folkehelsestatistikk",
     style = "
     color: #025169;
-    font-weight: 700;
+    font-weight: 450;
     margin-bottom: 5px;
   "
   ),
@@ -125,7 +125,7 @@ ui <- fluidPage(
   fluidRow(
     column(
       width = 6,
-      textInput("word", "Skriv ett ord", placeholder = "adjektiv"),
+      textInput("word", "Skriv ett ord om gangen", placeholder = "adjektiv"),
       actionBttn(
         inputId = "send_word",
         label = "Send",
