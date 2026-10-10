@@ -1,10 +1,21 @@
 # Word cloud display app -----------------------------------------------------
 # Run from this folder with: shiny::runApp()
-# Required packages: shiny, highcharter, googlesheets4
+# Required packages: shiny, highcharter, googlesheets4, wordcloud, RColorBrewer
 
 library(shiny)
 library(highcharter)
 library(googlesheets4)
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
+
+hdir_colors <- c(
+    "#025169", "#0069E8",
+    "#7C145C", "#C68803",
+    "#047FA4", "#38A389",
+    "#6996CE", "#366558",
+    "#BF78DE", "#767676"
+  )
 
 # These settings must match the input app.
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
@@ -49,6 +60,7 @@ ui <- fluidPage(
     tags$style(HTML("
       .viewer-controls { margin: 12px 0 18px 0; }
       .viewer-status { margin-left: 12px; font-weight: 600; }
+      .cloud-panel { padding-top: 15px; }
     "))
   ),
   titlePanel(""),
@@ -59,9 +71,32 @@ ui <- fluidPage(
         class = "viewer-controls",
         actionButton("pause_updates", "Pause", class = "btn-warning"),
         actionButton("resume_updates", "Oppdatere", class = "btn-success"),
+        downloadButton("download_words", "Last ned orddata"),
         span(class = "viewer-status", textOutput("viewer_status", inline = TRUE))
       ),
-      highchartOutput("wordcloud", height = "78vh")
+      tabsetPanel(
+        id = "cloud_view",
+        tabPanel(
+          "highdir",
+          div(class = "cloud-panel", highchartOutput("wordcloud", height = "70vh"))
+        ),
+
+        tabPanel(
+          "alt01",
+          div(class = "cloud2-panel",
+              wordcloud2::wordcloud2Output(
+                "r_wordcloud2",
+                height = "70vh",
+                width = "100%"
+              ))
+        ),
+        tabPanel(
+          "alt02",
+          div(class = "cloud-panel",
+              plotOutput("r_wordcloud", height = "70vh"),
+              downloadButton("download_r_wordcloud", "Last ned ordsky (PNG)"))
+        )
+      )
     )
   )
 )
@@ -126,7 +161,7 @@ server <- function(input, output, session) {
     }
 
     highcharter::highchart() |>
-      highcharter::hc_title(text = "Folkehelsestatistikk") |>
+#       highcharter::hc_title(text = "Folkehelsestatistikk") |>
       highcharter::hc_add_series(
         data = highcharter::list_parse(freq),
         type = "wordcloud",
@@ -134,6 +169,7 @@ server <- function(input, output, session) {
         spiral = "archimedean"
       ) |>
       highcharter::hc_credits(enabled = FALSE) |>
+      highcharter::hc_exporting(enabled = TRUE) |>
       highcharter::hc_tooltip(
         useHTML = TRUE,
         headerFormat = "",
@@ -145,6 +181,60 @@ server <- function(input, output, session) {
         )
       )
   })
+
+  # Highcharts provides its own browser-side export menu (PNG, JPEG, PDF, SVG).
+  # The CSV download is useful for saving the exact counts behind either view.
+  output$download_words <- downloadHandler(
+    filename = function() paste0("word-counts-", Sys.Date(), ".csv"),
+    content = function(file) utils::write.csv(cached_words(), file, row.names = FALSE)
+  )
+
+  draw_r_wordcloud <- function() {
+    freq <- cached_words()
+    if (nrow(freq) == 0) {
+      plot.new()
+      text(0.5, 0.5, "Ingen ord sendt ennå", cex = 1.3)
+      return(invisible(NULL))
+    }
+    wordcloud::wordcloud(
+      words = freq$name,
+      freq = freq$weight,
+      min.freq = 1,
+      max.words = 200,
+      random.order = FALSE,
+      rot.per = 0.15,
+      colors = hdir_colors
+#       colors = RColorBrewer::brewer.pal(8, "Dark2")
+    )
+  }
+
+  output$r_wordcloud2 <- renderWordcloud2({
+    freq <- cached_words()
+
+    if (nrow(freq) == 0) {
+      return(NULL)
+    }
+
+    wordcloud2::wordcloud2(
+      data = freq,
+      size = 1,
+      color = "random-light",
+      backgroundColor = "white"
+    )
+  })
+
+  output$r_wordcloud <- renderPlot({
+    draw_r_wordcloud()
+  }, res = 96)
+
+  output$download_r_wordcloud <- downloadHandler(
+    filename = function() paste0("wordcloud-", Sys.Date(), ".png"),
+    content = function(file) {
+      grDevices::png(file, width = 1600, height = 1100, res = 150)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      draw_r_wordcloud()
+    }
+  )
 }
 
 shinyApp(ui = ui, server = server)

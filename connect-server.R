@@ -8,6 +8,7 @@ rsconnect::deployApp(appDir='wordcloud/wordcloud')
 
 # Deploy with different account
 rsconnect::forgetDeployment("wordcloud/words")
+
 rsconnect::deployApp(
   appDir = "wordcloud/words",
   account = "ybkamaleri"

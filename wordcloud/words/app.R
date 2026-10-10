@@ -103,22 +103,21 @@ ui <- fluidPage(
     functions = "bindEnter"
   ),
 
-  h1(
-    "Avd. folkehelsestatistikk",
+  h2(
+    HTML("Avd.<br><b>Folkehelsestatistikk</b>"),
     style = "
     color: #025169;
-    font-size: 35px;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
   "
   ),
 
   h4(
-    "Beskrev hvem er vi...",
+    "Beskrev hvem vi er...",
     style = "color: #0069E8; text-align: left; margin-top: -10px;"
   ),
 
   p(
-    "Bruk så mange ord du vil, men kun ett ord om gangen",
+    "Bruk så mange ord du vil, men kun ett ord om gangen ☺️ ",
     style = "font-size: 16px; text-align: left;"
   ),
 
