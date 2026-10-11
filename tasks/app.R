@@ -25,6 +25,15 @@ library(googlesheets4)
 library(dplyr)
 library(rio)
 
+hdir_colors <- c(
+  "#025169", "#0069E8",
+  "#7C145C", "#C68803",
+  "#047FA4", "#38A389",
+  "#FFBF00", "#366558",
+  "#BF78DE", "#212121",
+  "#6996CE", "#767676"
+)
+
 ############################################################
 # GOOGLE SHEETS AUTHENTICATION
 ############################################################
@@ -449,21 +458,49 @@ resultsDashboardUI <- function(id) {
     ),
 
     fluidRow(
-
       box(
         width = 12,
         title = NULL,
         solidHeader = FALSE,
 
-        highchartOutput(
-          ns("main_chart"),
-          height = "calc(100vh - 180px)"
-          # height = "650px" #fit windows
+        tabsetPanel(
+          id = ns("chart_tabs"),
+
+          tabPanel(
+            title = "Gjennomsnitt",
+            br(),
+            highchartOutput(
+              ns("main_chart"),
+              height = "650px"
+            )
+          ),
+
+          tabPanel(
+            title = "Boksplott",
+            br(),
+            highchartOutput(
+              ns("boxplot_chart"),
+              height = "650px"
+            )
+          )
         )
       )
+      
+#       box(
+#         width = 12,
+#         title = NULL,
+#         solidHeader = FALSE,
+
+#         highchartOutput(
+#           ns("main_chart"),
+#           height = "calc(100vh - 180px)"
+#           # height = "650px" #fit windows
+#         )
+#       )
 
     )
 
+    
   )
 
 }
@@ -684,7 +721,137 @@ resultsDashboardServer <- function(
         ) |>
         hc_add_series(
           name = "Gjennomsnitt %",
-          data = averages
+          data = averages,
+          color = hdir_colors
+        )
+
+    })
+
+    
+    ########################################################
+    # Boxplot: distribution of scores by task
+    ########################################################
+
+    output$boxplot_chart <- renderHighchart({
+
+      df <- display_data()
+
+      # Handle an empty dataset
+      if (nrow(df) == 0) {
+
+        return(
+          highchart() |>
+            hc_title(
+              text = "Fordeling av skårer per aktivitet"
+            ) |>
+            hc_subtitle(
+              text = "Ingen svar er registrert ennå"
+            )
+        )
+
+      }
+
+      # Ensure scores are numeric
+      df$Scores <- as.numeric(df$Scores)
+
+      # Calculate the five-number summary for each task
+      box_data <- lapply(tasks, function(task) {
+
+        scores <- df$Scores[
+          df$Tasks == task
+        ]
+
+        scores <- scores[
+          is.finite(scores)
+        ]
+
+        # Handle tasks without valid observations
+        if (length(scores) == 0) {
+          return(
+            list(
+              low = NA_real_,
+              q1 = NA_real_,
+              median = NA_real_,
+              q3 = NA_real_,
+              high = NA_real_
+            )
+          )
+        }
+
+        q <- quantile(
+          scores,
+          probs = c(0, 0.25, 0.50, 0.75, 1),
+          na.rm = TRUE,
+          names = FALSE,
+          type = 7
+        )
+
+        list(
+          low = q[1],
+          q1 = q[2],
+          median = q[3],
+          q3 = q[4],
+          high = q[5]
+        )
+
+      })
+
+      # Draw the boxplot
+      highchart() |>
+        hc_chart(
+          type = "boxplot"
+        ) |>
+        hc_title(
+          text = "Fordeling av skårer per aktivitet"
+        ) |>
+        hc_subtitle(
+          text = paste(
+            "Antall respondenter:",
+            dplyr::n_distinct(df$ID)
+          )
+        ) |>
+        hc_xAxis(
+          categories = tasks
+#           title = list(
+#             text = "Aktivitet"
+#           ),
+#           labels = list(
+#             rotation = -45
+#           )
+        ) |>
+        hc_yAxis(
+          min = 0,
+          max = 100,
+          title = list(
+            text = "Skår (%)"
+          )
+        ) |>
+        hc_tooltip(
+          headerFormat = "<b>{point.key}</b><br/>",
+          pointFormat = paste0(
+            "Minimum: {point.low:.1f}%<br/>",
+            "25. persentil: {point.q1:.1f}%<br/>",
+            "Median: {point.median:.1f}%<br/>",
+            "75. persentil: {point.q3:.1f}%<br/>",
+            "Maksimum: {point.high:.1f}%"
+          )
+        ) |>
+        hc_add_series(
+          name = "Skårfordeling",
+          data = box_data,
+          type = "boxplot",
+          color = "#025169",
+          fillColor = "#d9eaf7",
+          lineWidth = 1.5,
+          medianColor = "#d9534f", #"#7C145C"
+          medianWidth = 3,
+          whiskerLength = "60%"
+        ) |>
+        hc_plotOptions(
+          boxplot = list(
+            pointPadding = 0.15,
+            groupPadding = 0.1
+          )
         )
 
     })
