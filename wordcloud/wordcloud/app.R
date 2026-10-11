@@ -105,7 +105,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   updates_enabled <- reactiveVal(TRUE)
   cached_words <- reactiveVal(empty_words)
-  viewer_message <- reactiveVal("Oppdatering fortsetter")
+  viewer_message <- reactiveVal("Oppdatering pågår")
   load_message <- reactiveVal("")
 
   # Load once at startup so the chart can appear immediately.
@@ -140,7 +140,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$resume_updates, {
     updates_enabled(TRUE)
-    viewer_message("Oppdatering pågår")
+    viewer_message("Oppdatering fortsetter")
     # Refresh immediately on resume rather than waiting for the next poll.
     tryCatch({
       cached_words(get_word_counts())
