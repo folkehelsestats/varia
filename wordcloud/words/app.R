@@ -7,8 +7,6 @@ library(shinyjs)
 library(shinyWidgets)
 library(googlesheets4)
 
-# highdir colors
-source("https://raw.githubusercontent.com/folkehelsestats/varia/refs/heads/main/colors.R")
 
 # Configure these for your deployment.
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
@@ -49,116 +47,218 @@ stop_words <- unique(c(
   "that","this","from","be","are","was","were","or","by","as","about"
 ))
 
+
 validate_word <- function(word) {
-  if (is.null(word) || length(word) == 0 || is.na(word) || !nzchar(trimws(word))) {
-    return(list(valid = FALSE, message = "Et ord om gangen."))
+  if (is.null(word) || length(word) == 0 || is.na(word) ||
+      !nzchar(trimws(word))) {
+    return(list(valid = FALSE, message = "Feltet er tomt."))
   }
 
+  # Trim outer whitespace and normalize repeated whitespace.
   word <- trimws(word)
-  if (grepl("\\s", word)) {
-    return(list(valid = FALSE, message = "Kun ett ord tillatt."))
+  word <- gsub("\\s+", " ", word)
+
+  # Allow letters, numbers, spaces, Norwegian characters, and hyphens.
+  if (grepl("[^[:alnum:]æøåÆØÅ -]", word)) {
+    return(list(valid = FALSE, message = "Ugyldige tegn."))
   }
 
-  # Keep letters/numbers plus Norwegian characters and hyphens.
-  word <- gsub("[^[:alnum:]æøåÆØÅ-]", "", word)
-  if (!nzchar(word)) {
-    return(list(valid = FALSE, message = "Ugyldig ord."))
-  }
   if (nchar(word) > 30) {
-    return(list(valid = FALSE, message = "Maksimum 30 tegn."))
+    return(list(valid = FALSE, message = "Maksimum 30 tegn per felt."))
   }
 
-  word <- tolower(word)
-  if (word %in% stop_words) {
-    return(list(valid = FALSE, message = "Vanlige stoppeord er ikke tillatt."))
+  normalized_word <- tolower(word)
+
+  # Reject stop words when the entire entry is a stop word.
+  if (normalized_word %in% stop_words) {
+    return(list(
+      valid = FALSE,
+      message = "Vanlige stoppeord er ikke tillatt."
+    ))
   }
-  list(valid = TRUE, word = word)
+
+  list(valid = TRUE, word = normalized_word)
 }
 
-append_word <- function(word) {
+append_words <- function(words) {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")
+
   googlesheets4::sheet_append(
     ss = sheet_id,
     sheet = worksheet_name,
     data = data.frame(
-      timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
-      word = word,
+      timestamp = rep(timestamp, length(words)),
+      word = words,
       stringsAsFactors = FALSE
     )
   )
 }
 
+
 ui <- fluidPage(
   useShinyjs(),
+
   extendShinyjs(
     text = "
       shinyjs.bindEnter = function() {
-        $('#word').on('keydown', function(e) {
-          if (e.which === 13) {
-            e.preventDefault();
-            $('#send_word').click();
-          }
-        });
+        $('#word1, #word2, #word3, #word4, #word5')
+          .on('keydown', function(e) {
+            if (e.which === 13) {
+              e.preventDefault();
+              $('#send_words').click();
+            }
+          });
       }
     ",
     functions = "bindEnter"
   ),
 
   h2(
-    HTML("Avd.<br><b>Folkehelsestatistikk</b>"),
-    style = "
-    color: #025169;
-    margin-bottom: 8px;
-  "
+    HTML("Avd.<br>Folkehelsestatistikk"),
+    style = "color: #025169; margin-bottom: 8px;"
   ),
 
   h4(
-    "Beskrev hvem vi er...",
+    "Beskriv hvem vi er...",
     style = "color: #0069E8; text-align: left; margin-top: -10px;"
   ),
 
   p(
-    "Bruk så mange ord du vil, men kun ett ord om gangen ☺️ ",
+    "Skriv minst 1 ord eller maks 5 ord om gangen. Kan sende flere ord flere ganger også ☺️",
     style = "font-size: 16px; text-align: left;"
   ),
 
   fluidRow(
     column(
       width = 6,
-      textInput("word", "Skriv ett ord om gangen", placeholder = "adjektiv"),
+
+      textInput("word1", "Ord 1",
+                placeholder = "..."),
+      textInput("word2", "Ord 2",
+                placeholder = "..."),
+      textInput("word3", "Ord 3",
+                placeholder = "..."),
+      textInput("word4", "Ord 4",
+                placeholder = "..."),
+      textInput("word5", "Ord 5",
+                placeholder = "..."),
+
       actionBttn(
-        inputId = "send_word",
+        inputId = "send_words",
         label = "Send",
         style = "material-flat",
         color = "primary"
       ),
+
       br(), br(),
-      role = "status",
-      verbatimTextOutput("status")
+
+      tags$div(
+        role = "status",
+        `aria-live` = "polite",
+        verbatimTextOutput("status")
+      )
     )
   )
 )
 
+
+
 server <- function(input, output, session) {
   shinyjs::js$bindEnter()
-  status_message <- reactiveVal("Klar til å ta imot ord 🫰 ")
+
+  status_message <- reactiveVal("Klar til å ta imot ord 🫰")
 
   output$status <- renderText(status_message())
 
-  observeEvent(input$send_word, {
-    validation <- validate_word(input$word)
+  observeEvent(input$send_words, {
+    # Collect all five input values.
+    input_values <- lapply(
+      1:5,
+      function(i) input[[paste0("word", i)]]
+    )
 
-    if (!validation$valid) {
-      status_message(paste("❌", validation$message))
+    # Keep track of the original field numbers.
+    filled <- vapply(
+      input_values,
+      function(x) !is.null(x) &&
+        length(x) > 0 &&
+        !is.na(x) &&
+        nzchar(trimws(x)),
+      logical(1)
+    )
+
+    if (!any(filled)) {
+      status_message("❌ Skriv inn minst ett ord .")
       return()
     }
 
+    # Extract only populated fields.
+    words_to_check <- unlist(input_values[filled], use.names = FALSE)
+    field_numbers <- which(filled)
+
+    # Validate every entry before saving.
+    validations <- lapply(words_to_check, validate_word)
+
+    valid_entries <- vapply(
+      validations,
+      function(x) x$valid,
+      logical(1)
+    )
+
+    if (!all(valid_entries)) {
+      invalid_indices <- which(!valid_entries)
+
+      errors <- vapply(
+        invalid_indices,
+        function(i) {
+          paste0(
+            "Felt ", field_numbers[i], ": ",
+            validations[[i]]$message
+          )
+        },
+        character(1)
+      )
+
+      status_message(
+        paste0("❌ ", paste(errors, collapse = "\n"))
+      )
+      return()
+    }
+
+    # Extract validated entries.
+    validated_words <- vapply(
+      validations,
+      function(x) x$word,
+      character(1)
+    )
+
+    # Save all entries together.
     tryCatch({
-      append_word(validation$word)
-      status_message(paste("✅ Sendt:", validation$word))
-      updateTextInput(session, "word", value = "")
-      shinyjs::runjs("$('#word').trigger('focus');")
+      append_words(validated_words)
+
+      status_message(
+        paste0(
+          "✅ Sendt ", length(validated_words), " oppføring(er): ",
+          paste(validated_words, collapse = "; ")
+        )
+      )
+
+      # Clear all five inputs after successful saving.
+      for (i in 1:5) {
+        updateTextInput(
+          session,
+          inputId = paste0("word", i),
+          value = ""
+        )
+      }
+
+      shinyjs::runjs("$('#word1').trigger('focus');")
+
     }, error = function(e) {
-      status_message(paste("❌ Kunne ikke lagre ordet:", conditionMessage(e)))
+      status_message(
+        paste("❌ Kunne ikke lagre oppføringene:",
+              conditionMessage(e))
+      )
     })
   })
 }
