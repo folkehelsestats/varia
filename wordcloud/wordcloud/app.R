@@ -10,12 +10,13 @@ library(wordcloud2)
 library(RColorBrewer)
 
 hdir_colors <- c(
-    "#025169", "#0069E8",
-    "#7C145C", "#C68803",
-    "#047FA4", "#38A389",
-    "#6996CE", "#366558",
-    "#BF78DE", "#767676"
-  )
+  "#025169", "#0069E8",
+  "#7C145C", "#C68803",
+  "#047FA4", "#38A389",
+  "#FFBF00", "#366558",
+  "#BF78DE", "#212121",
+  "#6996CE", "#767676"
+)
 
 # These settings must match the input app.
 sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
@@ -166,6 +167,7 @@ server <- function(input, output, session) {
         data = highcharter::list_parse(freq),
         type = "wordcloud",
         name = "Ord",
+        colors = hdir_colors,
         spiral = "archimedean"
       ) |>
       highcharter::hc_credits(enabled = FALSE) |>
@@ -218,7 +220,7 @@ server <- function(input, output, session) {
     wordcloud2::wordcloud2(
       data = freq,
       size = 1,
-      color = "random-light",
+      color = hdir_colors,
       backgroundColor = "white"
     )
   })
