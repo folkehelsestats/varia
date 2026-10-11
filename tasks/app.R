@@ -436,28 +436,6 @@ resultsDashboardUI <- function(id) {
 
   tagList(
     fluidRow(
-
-      column(
-        12,
-        actionButton(
-          ns("toggle_refresh"),
-          "Pause oppdatering",
-          icon = icon("pause")
-        )
-      )
-
-    ),
-
-    fluidRow(
-
-      valueBoxOutput(
-        ns("respondent_box"),
-        width = 4
-      )
-
-    ),
-
-    fluidRow(
       box(
         width = 12,
         title = NULL,
@@ -881,6 +859,11 @@ ui <- dashboardPage(
       ),
 
       menuItem(
+      "Deltaker",
+      tabName = "deltaker",
+      icon = icon("users")),
+
+      menuItem(
         "Oversikt",
         tabName = "results",
         icon = icon("bar-chart")
@@ -953,17 +936,42 @@ ui <- dashboardPage(
 
     tabItems(
 
-    ######################################################
-    # Survey Tab
-    ######################################################
+      ###########
+      # Deltaker
+      ########### 
 
-    tabItem(
-      tabName = "survey",
-      fluidRow(
-        box(
-          width = 12,
-          title = "Aktiviteter (summen skal være 100)",
-          status = "primary",
+      tabItem(
+        tabName = "deltaker",
+        fluidRow(
+          column(
+            12,
+            actionButton(
+              "dashboard-toggle_refresh",
+              "Pause oppdatering",
+              icon = icon("pause")
+            )
+          )
+        ),
+
+        fluidRow(
+          valueBoxOutput(
+            "dashboard-respondent_box",
+            width = 4
+          )
+        )
+      ), 
+      
+      ######################################################
+      # Survey Tab
+      ######################################################
+
+      tabItem(
+        tabName = "survey",
+        fluidRow(
+          box(
+            width = 12,
+            title = "Aktiviteter (summen skal være 100)",
+            status = "primary",
           solidHeader = TRUE,
 #           p(
 #             "Allocate exactly 100 points across the tasks."
