@@ -1,802 +1,650 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta http-equiv="x-ua-compatible" content="ie=edge">
-        <meta name="viewport"
-              content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-
-        <title>House Stick Puzzle</title>
-
-        <style>
-
-         body{
-             margin:0;
-             padding:10px;
-             font-family:Arial,sans-serif;
-             text-align:center;
-             background:#f4f4f4;
-         }
-
-         h2{
-             margin:10px 0 5px;
-         }
-
-         #status{
-             font-size:18px;
-             font-weight:bold;
-             margin-bottom:10px;
-         }
-
-         #controls{
-             display:flex;
-             flex-wrap:wrap;
-             justify-content:center;
-             gap:10px;
-             margin-bottom:10px;
-         }
-
-         button{
-             padding:12px 18px;
-             font-size:16px;
-             border:none;
-             border-radius:8px;
-             cursor:pointer;
-             background:#1976d2;
-             color:white;
-             min-width:120px;
-         }
-
-         canvas{
-             background:white;
-             border:1px solid #999;
-             width:100%;
-             max-width:700px;
-             height:auto;
-             touch-action:none;
-         }
-
-         #failBox{
-             position:fixed;
-             inset:0;
-             display:none;
-             justify-content:center;
-             align-items:center;
-             background:#b71c1c;
-             color:white;
-             z-index:9999;
-         }
-
-         .failContent{
-             text-align:center;
-             padding:20px;
-         }
-
-         .failTitle{
-             font-size:min(18vw,100px);
-             font-weight:bold;
-         }
-
-         .failText{
-             font-size:min(6vw,30px);
-             margin:20px 0;
-         }
-
-        </style>
-    </head>
-    <body>
-
-        <h2>Flytt 3 pinner</h2>
-
-        <div id="status">
-            Tid: <span id="timer">00:00</span>
-            <br>
-            Pinner flyttet:
-            <span id="stickCount">0 / 3</span>
-        </div>
-
-        <div id="controls">
-            <button id="startBtn">Start</button>
-            <button id="undoBtn">Angre</button>
-            <button id="resetBtn">Nullstill</button>
-        </div>
-
-        <canvas id="canvas"
-                width="700"
-                height="500"></canvas>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>House Stick Puzzle</title>
+
+<style>
+body{
+    margin:0;
+    padding:10px;
+    text-align:center;
+    font-family:Arial,sans-serif;
+    background:#f4f4f4;
+}
+
+h2{
+    margin:10px 0;
+}
+
+#status{
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
+
+#controls{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:10px;
+}
+
+button{
+    padding:12px 20px;
+    border:none;
+    border-radius:8px;
+    background:#1976d2;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+}
+
+canvas{
+    background:white;
+    border:1px solid #999;
+    width:100%;
+    max-width:700px;
+    touch-action:none;
+}
+
+#failBox{
+    position:fixed;
+    inset:0;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    background:#b71c1c;
+    color:white;
+    z-index:1000;
+}
+
+.failTitle{
+    font-size:min(18vw,100px);
+    font-weight:bold;
+}
+
+.failText{
+    font-size:min(6vw,30px);
+    margin:20px;
+}
+</style>
+</head>
+<body>
+
+<h2>Flytt 3 pinner</h2>
+
+<div id="status">
+Tid: <span id="timer">00:00</span><br>
+Pinner flyttet:
+<span id="stickCount">0 / 3</span>
+</div>
+
+<div id="controls">
+<button id="startBtn">Start</button>
+<button id="undoBtn">Angre</button>
+<button id="resetBtn">Nullstill</button>
+</div>
+
+<canvas id="canvas" width="700" height="500"></canvas>
+
+<div id="failBox">
+<div>
+<div class="failTitle">FAIL</div>
+<div class="failText">
+Du flyttet mer enn 3 pinner<br>
+Prøv igjen
+</div>
+<button id="retryBtn">Prøv igjen</button>
+</div>
+</div>
+
+<script>
 
-        <div id="failBox">
-            <div class="failContent">
-                <div class="failTitle">
-                    FAIL
-                </div>
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
 
-                <div class="failText">
-                    Du flyttet mer enn 3 pinner
-                    <br>
-                    Prøv igjen
-                </div>
+const STICK_LENGTH=140;
 
-                <button id="retryBtn">
-                    Prøv igjen
-                </button>
-            </div>
-        </div>
+const dot={
+    x:520,
+    y:145,
+    r:14
+};
 
-        <script>
+const originalSticks=[
+    {x:260,y:290,length:STICK_LENGTH,angle:Math.PI/2},
+    {x:400,y:290,length:STICK_LENGTH,angle:Math.PI/2},
+    {x:330,y:360,length:STICK_LENGTH,angle:0},
+    {x:295,y:185,length:STICK_LENGTH,angle:-1.04},
+    {x:365,y:185,length:STICK_LENGTH,angle:1.04}
+];
 
-         const canvas =
-             document.getElementById("canvas");
+let sticks=
+JSON.parse(JSON.stringify(originalSticks));
 
-         const ctx =
-             canvas.getContext("2d");
+let movedSticks=new Set();
+let history=[];
 
-         const dot = {
-             x:445,
-             y:105,
-             r:10
-         };
+let selectedStick=null;
+let rotatingStick=null;
 
-         const originalSticks = [
-             // left wall
-             { x: 280, y: 240, length: 140, angle: Math.PI / 2 },
+let lastX=0;
+let lastY=0;
 
-             // right wall
-             { x: 420, y: 240, length: 140, angle: Math.PI / 2 },
+let previousTouchAngle=null;
 
-             // floor
-             { x: 350, y: 310, length: 140, angle: 0 },
+let gameStarted=false;
+let timerInterval=null;
+let elapsedTime=0;
+let startTime=0;
 
-             // left roof
-             { x: 315, y: 145, length: 140, angle: -1.05 },
+function updateStickCount(){
+    document.getElementById("stickCount").textContent=
+    movedSticks.size+" / 3";
+}
 
-             // right roof
-             { x: 385, y: 145, length: 140, angle: 1.05 }
-         ];
-         // const originalSticks = [
-         //     {x:250,y:250,length:140,angle:Math.PI/2},
-         //     {x:450,y:250,length:140,angle:Math.PI/2},
-         //     {x:350,y:320,length:200,angle:0},
-         //     {x:300,y:145,length:130,angle:-0.68},
-         //     {x:400,y:145,length:130,angle:0.68}
-         // ];
+function formatTime(sec){
+    const m=
+    String(Math.floor(sec/60))
+    .padStart(2,"0");
 
-         let sticks =
-             JSON.parse(JSON.stringify(originalSticks));
+    const s=
+    String(sec%60)
+    .padStart(2,"0");
 
-         let movedSticks = new Set();
-         let history = [];
+    return m+":"+s;
+}
 
-         let selectedStick = null;
-         let moving = false;
+function startTimer(){
 
-         let gameStarted = false;
-         let timerInterval = null;
-         let startTime = 0;
-         let elapsedTime = 0;
+    startTime=
+    Date.now()-elapsedTime*1000;
 
-         let lastX = 0;
-         let lastY = 0;
+    timerInterval=
+    setInterval(()=>{
+        elapsedTime=
+        Math.floor(
+            (Date.now()-startTime)/1000
+        );
 
-         let touchRotateStick = null;
-         let previousTouchAngle = null;
+        document.getElementById("timer")
+        .textContent=
+        formatTime(elapsedTime);
 
-         function updateStickCount(){
-             document.getElementById("stickCount").textContent =
-                 movedSticks.size + " / 3";
-         }
+    },1000);
+}
 
-         function formatTime(seconds){
+function stopTimer(){
+    clearInterval(timerInterval);
+}
 
-             const mm =
-                 String(Math.floor(seconds/60))
-                     .padStart(2,"0");
+function saveState(){
 
-             const ss =
-                 String(seconds%60)
-                     .padStart(2,"0");
+    history.push({
+        sticks:
+        JSON.parse(JSON.stringify(sticks)),
+        moved:
+        [...movedSticks]
+    });
 
-             return mm + ":" + ss;
-         }
+    if(history.length>100){
+        history.shift();
+    }
+}
 
-         function startTimer(){
+function registerStick(index){
 
-             startTime = Date.now();
+    if(!movedSticks.has(index)){
 
-             timerInterval =
-                 setInterval(()=>{
+        if(movedSticks.size>=3){
 
-                     elapsedTime =
-                         Math.floor(
-                             (Date.now()-startTime)/1000
-                         );
+            failGame();
+            return false;
+        }
 
-                     document.getElementById("timer")
-                             .textContent =
-                                 formatTime(elapsedTime);
+        movedSticks.add(index);
+        updateStickCount();
+    }
 
-                 },1000);
-         }
+    return true;
+}
 
-         function stopTimer(){
+function failGame(){
 
-             clearInterval(timerInterval);
-         }
+    stopTimer();
 
-         function saveState(){
+    gameStarted=false;
 
-             history.push({
+    document.getElementById("timer")
+    .textContent="00:00";
 
-                 sticks:
-         JSON.parse(
-             JSON.stringify(sticks)
-         ),
+    elapsedTime=0;
 
-                 moved:
-         Array.from(movedSticks)
+    document.getElementById("startBtn")
+    .textContent="Start";
 
-             });
+    document.getElementById("failBox")
+    .style.display="flex";
+}
 
-             if(history.length>100){
-                 history.shift();
-             }
-         }
+function getEndpoints(stick){
 
-         function getEndpoints(stick){
+    const dx=
+    Math.cos(stick.angle)*
+    stick.length/2;
 
-             const dx =
-                 Math.cos(stick.angle) *
-             stick.length/2;
+    const dy=
+    Math.sin(stick.angle)*
+    stick.length/2;
 
-             const dy =
-                 Math.sin(stick.angle) *
-             stick.length/2;
+    return{
+        x1:stick.x-dx,
+        y1:stick.y-dy,
+        x2:stick.x+dx,
+        y2:stick.y+dy
+    };
+}
 
-             return {
+function draw(){
 
-                 x1:stick.x-dx,
-                 y1:stick.y-dy,
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
-                 x2:stick.x+dx,
-                 y2:stick.y+dy
+    ctx.fillStyle="black";
+    ctx.beginPath();
+    ctx.arc(
+        dot.x,
+        dot.y,
+        dot.r,
+        0,
+        Math.PI*2
+    );
+    ctx.fill();
 
-             };
-         }
+    sticks.forEach((s,i)=>{
 
-         function draw(){
+        const p=getEndpoints(s);
 
-             ctx.clearRect(
-                 0,
-                 0,
-                 canvas.width,
-                 canvas.height
-             );
+        ctx.strokeStyle=
+        i===selectedStick
+        ? "#d32f2f"
+        : "#a0522d";
 
-             ctx.fillStyle="black";
+        ctx.lineWidth=10;
+        ctx.lineCap="square";
 
-             ctx.beginPath();
-             ctx.arc(
-                 dot.x,
-                 dot.y,
-                 dot.r,
-                 0,
-                 Math.PI*2
-             );
-             ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(p.x1,p.y1);
+        ctx.lineTo(p.x2,p.y2);
+        ctx.stroke();
 
-             sticks.forEach((s)=>{
+        ctx.fillStyle="#1976d2";
+        ctx.beginPath();
+        ctx.arc(
+            s.x,
+            s.y,
+            14,
+            0,
+            Math.PI*2
+        );
+        ctx.fill();
+    });
+}
 
-                 const p =
-                     getEndpoints(s);
+function lineDistance(px,py,s){
 
-                 ctx.strokeStyle =
-                     "#8B4513";
+    const p=getEndpoints(s);
 
-                 ctx.lineWidth = 8;
+    const A=px-p.x1;
+    const B=py-p.y1;
+    const C=p.x2-p.x1;
+    const D=p.y2-p.y1;
 
-                 ctx.beginPath();
+    let param=
+    (A*C+B*D)/(C*C+D*D);
 
-                 ctx.moveTo(
-                     p.x1,
-                     p.y1
-                 );
+    param=
+    Math.max(0,Math.min(1,param));
 
-                 ctx.lineTo(
-                     p.x2,
-                     p.y2
-                 );
+    const xx=p.x1+param*C;
+    const yy=p.y1+param*D;
 
-                 ctx.stroke();
+    return Math.hypot(px-xx,py-yy);
+}
 
-                 ctx.fillStyle =
-                     "#1976d2";
+function pointerDown(x,y){
 
-                 ctx.beginPath();
+    if(!gameStarted)return;
 
-                 ctx.arc(
-                     s.x,
-                     s.y,
-                     8,
-                     0,
-                     Math.PI*2
-                 );
+    for(let i=sticks.length-1;i>=0;i--){
 
-                 ctx.fill();
+        const d=
+        Math.hypot(
+        x-sticks[i].x,
+        y-sticks[i].y);
 
-             });
+        if(d<20){
 
-         }
+            if(!registerStick(i))
+                return;
 
-         function pointDistance(
-             x1,y1,x2,y2){
+            saveState();
 
-             return Math.hypot(
-                 x2-x1,
-                 y2-y1
-             );
-         }
+            selectedStick=i;
 
-         function lineDistance(px,py,s){
+            lastX=x;
+            lastY=y;
 
-             const p =
-                 getEndpoints(s);
+            draw();
 
-             const A=px-p.x1;
-             const B=py-p.y1;
-             const C=p.x2-p.x1;
-             const D=p.y2-p.y1;
+            return;
+        }
+    }
+}
 
-             let param =
-                 (A*C+B*D)/
-             (C*C+D*D);
+function pointerMove(x,y){
 
-             param =
-                 Math.max(
-                     0,
-                     Math.min(
-                         1,
-                         param
-                     )
-                 );
+    if(selectedStick===null)
+        return;
 
-             const xx =
-                 p.x1+param*C;
+    if(rotatingStick!==null)
+        return;
 
-             const yy =
-                 p.y1+param*D;
+    sticks[selectedStick].x+=x-lastX;
+    sticks[selectedStick].y+=y-lastY;
 
-             return Math.hypot(
-                 px-xx,
-                 py-yy
-             );
-         }
+    lastX=x;
+    lastY=y;
 
-         function failGame(){
+    draw();
+}
 
-             stopTimer();
+function pointerUp(){
 
-             gameStarted = false;
+    selectedStick=null;
+    rotatingStick=null;
+    previousTouchAngle=null;
+}
 
-             elapsedTime = 0;
+canvas.addEventListener("mousedown",e=>{
 
-             document
-                 .getElementById("timer")
-                 .textContent =
-                     "00:00";
+    const r=
+    canvas.getBoundingClientRect();
 
-             document
-                 .getElementById("startBtn")
-                 .textContent =
-                     "Start";
+    pointerDown(
+        e.clientX-r.left,
+        e.clientY-r.top
+    );
 
-             document
-                 .getElementById("failBox")
-                 .style.display =
-                     "flex";
-         }
+});
 
-         function registerStick(index){
+canvas.addEventListener("mousemove",e=>{
 
-             if(
-                 !movedSticks.has(index)
-             ){
+    const r=
+    canvas.getBoundingClientRect();
 
-                 if(
-                     movedSticks.size >= 3
-                 ){
-                     failGame();
-                     return false;
-                 }
+    pointerMove(
+        e.clientX-r.left,
+        e.clientY-r.top
+    );
 
-                 movedSticks.add(index);
+});
 
-                 updateStickCount();
-             }
+window.addEventListener("mouseup",pointerUp);
 
-             return true;
-         }
+/* DESKTOP ROTATION */
 
-         function pointerDown(x,y){
+canvas.addEventListener("wheel",e=>{
 
-             if(!gameStarted)
-                 return;
+    e.preventDefault();
 
-             for(
-                 let i =
-                     sticks.length-1;
-                 i>=0;
-                 i--
-             ){
+    const r=
+    canvas.getBoundingClientRect();
 
-                 if(
-                     lineDistance(
-                         x,y,
-                         sticks[i]
-                     ) < 15
-                 ){
+    const x=e.clientX-r.left;
+    const y=e.clientY-r.top;
 
-                     if(
-                         !registerStick(i)
-                     ){
-                         return;
-                     }
+    for(let i=0;i<sticks.length;i++){
 
-                     saveState();
+        const d=Math.hypot(
+            x-sticks[i].x,
+            y-sticks[i].y
+        );
 
-                     selectedStick=i;
-                     moving=true;
+        if(d<25){
 
-                     lastX=x;
-                     lastY=y;
+            if(!registerStick(i))
+                return;
 
-                     return;
-                 }
-             }
-         }
+            saveState();
 
-         function pointerMove(x,y){
+            sticks[i].angle+=
+            e.deltaY>0 ? 0.12 : -0.12;
 
-             if(
-                 selectedStick===null
-             )
-                 return;
+            draw();
 
-             const dx =
-                 x-lastX;
+            return;
+        }
+    }
 
-             const dy =
-                 y-lastY;
+},{passive:false});
 
-             sticks
-             [selectedStick]
-                 .x += dx;
+/* MOBILE */
 
-             sticks
-             [selectedStick]
-                 .y += dy;
+canvas.addEventListener("touchstart",e=>{
 
-             lastX=x;
-             lastY=y;
+    e.preventDefault();
 
-             draw();
-         }
+    const r=
+    canvas.getBoundingClientRect();
 
-         function pointerUp(){
+    if(e.touches.length===1){
 
-             moving=false;
-             selectedStick=null;
-         }
+        const t=e.touches[0];
 
-         canvas.addEventListener(
-             "mousedown",
-             e=>{
+        pointerDown(
+            t.clientX-r.left,
+            t.clientY-r.top
+        );
+    }
 
-                 const r =
-                     canvas.getBoundingClientRect();
+    if(
+        e.touches.length===2 &&
+        selectedStick!==null
+    ){
 
-                 pointerDown(
-                     e.clientX-r.left,
-                     e.clientY-r.top
-                 );
+        rotatingStick=
+        selectedStick;
 
-         });
+        const t1=e.touches[0];
+        const t2=e.touches[1];
 
-         canvas.addEventListener(
-             "mousemove",
-             e=>{
+        previousTouchAngle=
+        Math.atan2(
+            t2.clientY-t1.clientY,
+            t2.clientX-t1.clientX
+        );
+    }
 
-                 const r =
-                     canvas.getBoundingClientRect();
+},{passive:false});
 
-                 pointerMove(
-                     e.clientX-r.left,
-                     e.clientY-r.top
-                 );
+canvas.addEventListener("touchmove",e=>{
 
-         });
+    e.preventDefault();
 
-         window.addEventListener(
-             "mouseup",
-             pointerUp
-         );
+    const r=
+    canvas.getBoundingClientRect();
 
-         /* TOUCH */
+    if(
+        e.touches.length===1 &&
+        rotatingStick===null &&
+        selectedStick!==null
+    ){
 
-         canvas.addEventListener(
-             "touchstart",
-             e=>{
+        const t=e.touches[0];
 
-                 e.preventDefault();
+        pointerMove(
+            t.clientX-r.left,
+            t.clientY-r.top
+        );
+    }
 
-                 const r =
-                     canvas.getBoundingClientRect();
+    if(
+        e.touches.length===2 &&
+        rotatingStick!==null
+    ){
 
-                 if(
-                     e.touches.length===1
-                 ){
+        const t1=e.touches[0];
+        const t2=e.touches[1];
 
-                     const t =
-                         e.touches[0];
+        const angle=
+        Math.atan2(
+            t2.clientY-t1.clientY,
+            t2.clientX-t1.clientX
+        );
 
-                     pointerDown(
-                         t.clientX-r.left,
-                         t.clientY-r.top
-                     );
-                 }
+        const delta=
+        angle-previousTouchAngle;
 
-                 if(
-                     e.touches.length===2 &&
-                     selectedStick !== null
-                 ){
+        sticks[rotatingStick].angle+=delta;
 
-                     touchRotateStick =
-                         selectedStick;
+        previousTouchAngle=angle;
 
-                     const t1 =
-                         e.touches[0];
+        draw();
+    }
 
-                     const t2 =
-                         e.touches[1];
+},{passive:false});
 
-                     previousTouchAngle =
-                         Math.atan2(
-                             t2.clientY-
-                             t1.clientY,
+canvas.addEventListener("touchend",e=>{
 
-                             t2.clientX-
-                             t1.clientX
-                         );
-                 }
+    e.preventDefault();
 
-             },
-             {passive:false}
-         );
+    if(e.touches.length===1){
 
-         canvas.addEventListener(
-             "touchmove",
-             e=>{
+        rotatingStick=null;
+        previousTouchAngle=null;
 
-                 e.preventDefault();
+        const r=
+        canvas.getBoundingClientRect();
 
-                 const r =
-                     canvas.getBoundingClientRect();
+        const t=e.touches[0];
 
-                 if(
-                     e.touches.length===1
-                 ){
+        lastX=t.clientX-r.left;
+        lastY=t.clientY-r.top;
 
-                     const t =
-                         e.touches[0];
+        return;
+    }
 
-                     pointerMove(
-                         t.clientX-r.left,
-                         t.clientY-r.top
-                     );
-                 }
+    if(e.touches.length===0){
 
-                 if(
-                     e.touches.length===2 &&
-                     touchRotateStick!==null
-                 ){
+        selectedStick=null;
+        rotatingStick=null;
+        previousTouchAngle=null;
+    }
 
-                     const t1 =
-                         e.touches[0];
+},{passive:false});
 
-                     const t2 =
-                         e.touches[1];
+document.getElementById("startBtn")
+.addEventListener("click",()=>{
 
-                     const angle =
-                         Math.atan2(
-                             t2.clientY-t1.clientY,
-                             t2.clientX-t1.clientX
-                         );
+    if(!gameStarted){
 
-                     const delta =
-                         angle-
-                         previousTouchAngle;
+        elapsedTime=0;
+        document.getElementById("timer")
+        .textContent="00:00";
 
-                     sticks[
-                         touchRotateStick
-                     ].angle += delta;
+        gameStarted=true;
 
-                     previousTouchAngle =
-                         angle;
+        document.getElementById("startBtn")
+        .textContent="Stop";
 
-                     draw();
-                 }
+        startTimer();
+    }
+    else{
 
-             },
-             {passive:false}
-         );
+        stopTimer();
 
-         canvas.addEventListener(
-             "touchend",
-             e=>{
+        gameStarted=false;
 
-                 pointerUp();
+        document.getElementById("startBtn")
+        .textContent="Start";
 
-                 touchRotateStick =
-                     null;
+        alert(
+            "Tid: "+
+            formatTime(elapsedTime)+
+            "\nPinner flyttet: "+
+            movedSticks.size
+        );
+    }
 
-                 previousTouchAngle =
-                     null;
+});
 
-             },
-             {passive:false}
-         );
+document.getElementById("undoBtn")
+.addEventListener("click",()=>{
 
-         document
-             .getElementById("startBtn")
-             .addEventListener(
-                 "click",
-                 ()=>{
+    if(history.length===0)
+        return;
 
-                     if(!gameStarted){
+    const state=history.pop();
 
-                         gameStarted=true;
+    sticks=
+    JSON.parse(JSON.stringify(state.sticks));
 
-                         elapsedTime=0;
+    movedSticks=
+    new Set(state.moved);
 
-                         document
-                             .getElementById("timer")
-                             .textContent=
-                                 "00:00";
+    updateStickCount();
 
-                         document
-                             .getElementById("startBtn")
-                             .textContent=
-                                 "Stop";
+    draw();
+});
 
-                         startTimer();
-                     }
-                     else{
+document.getElementById("resetBtn")
+.addEventListener("click",resetGame);
 
-                         stopTimer();
+document.getElementById("retryBtn")
+.addEventListener("click",()=>{
 
-                         gameStarted=false;
+    document.getElementById("failBox")
+    .style.display="none";
 
-                         document
-                             .getElementById("startBtn")
-                             .textContent=
-                                 "Start";
+    resetGame();
+});
 
-                         alert(
-                             "Tid: " +
-                             formatTime(
-                                 elapsedTime
-                             ) +
-                             "\nPinner flyttet: "+
-                             movedSticks.size
-                         );
-                     }
+function resetGame(){
 
-             });
+    stopTimer();
 
-         document
-             .getElementById("undoBtn")
-             .addEventListener(
-                 "click",
-                 ()=>{
+    gameStarted=false;
 
-                     if(
-                         history.length===0
-                     ) return;
+    sticks=
+    JSON.parse(JSON.stringify(originalSticks));
 
-                     const state =
-                         history.pop();
+    movedSticks=new Set();
+    history=[];
 
-                     sticks =
-                         JSON.parse(
-                             JSON.stringify(
-                                 state.sticks
-                             )
-                         );
+    elapsedTime=0;
 
-                     movedSticks =
-                         new Set(
-                             state.moved
-                         );
+    document.getElementById("timer")
+    .textContent="00:00";
 
-                     stopTimer();
+    document.getElementById("startBtn")
+    .textContent="Start";
 
-                     elapsedTime=0;
+    updateStickCount();
 
-                     document
-                         .getElementById("timer")
-                         .textContent=
-                             "00:00";
+    draw();
+}
 
-                     if(gameStarted){
-                         startTimer();
-                     }
+updateStickCount();
+draw();
 
-                     updateStickCount();
-
-                     draw();
-
-             });
-
-         document
-             .getElementById("resetBtn")
-             .addEventListener(
-                 "click",
-                 resetGame
-             );
-
-         document
-             .getElementById("retryBtn")
-             .addEventListener(
-                 "click",
-                 ()=>{
-
-                     document
-                         .getElementById("failBox")
-                         .style.display =
-                             "none";
-
-                     resetGame();
-
-             });
-
-         function resetGame(){
-
-             stopTimer();
-
-             gameStarted=false;
-
-             sticks=
-                 JSON.parse(
-                     JSON.stringify(
-                         originalSticks
-                     )
-                 );
-
-             movedSticks =
-                 new Set();
-
-             history=[];
-
-             elapsedTime=0;
-
-             document
-                 .getElementById("timer")
-                 .textContent=
-                     "00:00";
-
-             document
-                 .getElementById("startBtn")
-                 .textContent=
-                     "Start";
-
-             updateStickCount();
-
-             draw();
-         }
-
-         updateStickCount();
-         draw();
-
-        </script>
-
-    </body>
+</script>
+</body>
 </html>
