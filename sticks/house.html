@@ -321,29 +321,24 @@ function lineDistance(px,py,s){
 
 function pointerDown(x,y){
 
-    if(!gameStarted)return;
+    if(!gameStarted) return;
 
-    for(let i=sticks.length-1;i>=0;i--){
+    for(let i = sticks.length - 1; i >= 0; i--){
 
-        const d=
-        Math.hypot(
-        x-sticks[i].x,
-        y-sticks[i].y);
-
-        if(d<20){
+        // tap anywhere on stick
+        if(lineDistance(x,y,sticks[i]) < 40){
 
             if(!registerStick(i))
                 return;
 
             saveState();
 
-            selectedStick=i;
+            selectedStick = i;
 
-            lastX=x;
-            lastY=y;
+            lastX = x;
+            lastY = y;
 
             draw();
-
             return;
         }
     }
@@ -351,17 +346,20 @@ function pointerDown(x,y){
 
 function pointerMove(x,y){
 
-    if(selectedStick===null)
+    if(selectedStick === null)
         return;
 
-    if(rotatingStick!==null)
+    if(rotatingStick !== null)
         return;
 
-    sticks[selectedStick].x+=x-lastX;
-    sticks[selectedStick].y+=y-lastY;
+    const dx = x - lastX;
+    const dy = y - lastY;
 
-    lastX=x;
-    lastY=y;
+    sticks[selectedStick].x += dx;
+    sticks[selectedStick].y += dy;
+
+    lastX = x;
+    lastY = y;
 
     draw();
 }
@@ -401,35 +399,28 @@ window.addEventListener("mouseup",pointerUp);
 
 /* DESKTOP ROTATION */
 
-canvas.addEventListener("wheel",e=>{
+ canvas.addEventListener("wheel",e=>{
 
     e.preventDefault();
 
-    const r=
-    canvas.getBoundingClientRect();
+    const r = canvas.getBoundingClientRect();
 
-    const x=e.clientX-r.left;
-    const y=e.clientY-r.top;
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
 
     for(let i=0;i<sticks.length;i++){
 
-        const d=Math.hypot(
-            x-sticks[i].x,
-            y-sticks[i].y
-        );
-
-        if(d<25){
+        if(lineDistance(x,y,sticks[i]) < 40){
 
             if(!registerStick(i))
                 return;
 
             saveState();
 
-            sticks[i].angle+=
-            e.deltaY>0 ? 0.12 : -0.12;
+            sticks[i].angle +=
+                e.deltaY > 0 ? 0.12 : -0.12;
 
             draw();
-
             return;
         }
     }
@@ -475,47 +466,46 @@ canvas.addEventListener("touchstart",e=>{
 
 },{passive:false});
 
-canvas.addEventListener("touchmove",e=>{
+ canvas.addEventListener("touchmove",e=>{
 
     e.preventDefault();
 
-    const r=
-    canvas.getBoundingClientRect();
+    const r =
+        canvas.getBoundingClientRect();
 
     if(
-        e.touches.length===1 &&
-        rotatingStick===null &&
-        selectedStick!==null
+        e.touches.length === 1 &&
+        selectedStick !== null &&
+        rotatingStick === null
     ){
 
-        const t=e.touches[0];
+        const t = e.touches[0];
 
         pointerMove(
-            t.clientX-r.left,
-            t.clientY-r.top
+            t.clientX - r.left,
+            t.clientY - r.top
         );
     }
 
     if(
-        e.touches.length===2 &&
-        rotatingStick!==null
+        e.touches.length === 2 &&
+        rotatingStick !== null
     ){
 
-        const t1=e.touches[0];
-        const t2=e.touches[1];
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
 
-        const angle=
-        Math.atan2(
-            t2.clientY-t1.clientY,
-            t2.clientX-t1.clientX
+        const angle = Math.atan2(
+            t2.clientY - t1.clientY,
+            t2.clientX - t1.clientX
         );
 
-        const delta=
-        angle-previousTouchAngle;
+        const delta =
+            angle - previousTouchAngle;
 
-        sticks[rotatingStick].angle+=delta;
+        sticks[rotatingStick].angle += delta;
 
-        previousTouchAngle=angle;
+        previousTouchAngle = angle;
 
         draw();
     }
