@@ -1,640 +1,443 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>House Stick Puzzle</title>
-
-<style>
-body{
-    margin:0;
-    padding:10px;
-    text-align:center;
-    font-family:Arial,sans-serif;
-    background:#f4f4f4;
-}
-
-h2{
-    margin:10px 0;
-}
-
-#status{
-    font-size:18px;
-    font-weight:bold;
-    margin-bottom:10px;
-}
-
-#controls{
-    display:flex;
-    justify-content:center;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-bottom:10px;
-}
-
-button{
-    padding:12px 20px;
-    border:none;
-    border-radius:8px;
-    background:#1976d2;
-    color:white;
-    font-size:16px;
-    cursor:pointer;
-}
-
-canvas{
-    background:white;
-    border:1px solid #999;
-    width:100%;
-    max-width:700px;
-    touch-action:none;
-}
-
-#failBox{
-    position:fixed;
-    inset:0;
-    display:none;
-    justify-content:center;
-    align-items:center;
-    background:#b71c1c;
-    color:white;
-    z-index:1000;
-}
-
-.failTitle{
-    font-size:min(18vw,100px);
-    font-weight:bold;
-}
-
-.failText{
-    font-size:min(6vw,30px);
-    margin:20px;
-}
-</style>
-</head>
-<body>
-
-<h2>Flytt 3 pinner</h2>
-
-<div id="status">
-Tid: <span id="timer">00:00</span><br>
-Pinner flyttet:
-<span id="stickCount">0 / 3</span>
-</div>
-
-<div id="controls">
-<button id="startBtn">Start</button>
-<button id="undoBtn">Angre</button>
-<button id="resetBtn">Nullstill</button>
-</div>
-
-<canvas id="canvas" width="700" height="500"></canvas>
-
-<div id="failBox">
-<div>
-<div class="failTitle">FAIL</div>
-<div class="failText">
-Du flyttet mer enn 3 pinner<br>
-Prøv igjen
-</div>
-<button id="retryBtn">Prøv igjen</button>
-</div>
-</div>
-
-<script>
-
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d");
-
-const STICK_LENGTH=140;
-
-const dot={
-    x:520,
-    y:145,
-    r:14
-};
-
-const originalSticks=[
-    {x:260,y:290,length:STICK_LENGTH,angle:Math.PI/2},
-    {x:400,y:290,length:STICK_LENGTH,angle:Math.PI/2},
-    {x:330,y:360,length:STICK_LENGTH,angle:0},
-    {x:295,y:185,length:STICK_LENGTH,angle:-1.04},
-    {x:365,y:185,length:STICK_LENGTH,angle:1.04}
-];
-
-let sticks=
-JSON.parse(JSON.stringify(originalSticks));
-
-let movedSticks=new Set();
-let history=[];
-
-let selectedStick=null;
-let rotatingStick=null;
-
-let lastX=0;
-let lastY=0;
-
-let previousTouchAngle=null;
-
-let gameStarted=false;
-let timerInterval=null;
-let elapsedTime=0;
-let startTime=0;
-
-function updateStickCount(){
-    document.getElementById("stickCount").textContent=
-    movedSticks.size+" / 3";
-}
-
-function formatTime(sec){
-    const m=
-    String(Math.floor(sec/60))
-    .padStart(2,"0");
-
-    const s=
-    String(sec%60)
-    .padStart(2,"0");
-
-    return m+":"+s;
-}
-
-function startTimer(){
-
-    startTime=
-    Date.now()-elapsedTime*1000;
-
-    timerInterval=
-    setInterval(()=>{
-        elapsedTime=
-        Math.floor(
-            (Date.now()-startTime)/1000
-        );
-
-        document.getElementById("timer")
-        .textContent=
-        formatTime(elapsedTime);
-
-    },1000);
-}
-
-function stopTimer(){
-    clearInterval(timerInterval);
-}
-
-function saveState(){
-
-    history.push({
-        sticks:
-        JSON.parse(JSON.stringify(sticks)),
-        moved:
-        [...movedSticks]
-    });
-
-    if(history.length>100){
-        history.shift();
-    }
-}
-
-function registerStick(index){
-
-    if(!movedSticks.has(index)){
-
-        if(movedSticks.size>=3){
-
-            failGame();
-            return false;
-        }
-
-        movedSticks.add(index);
-        updateStickCount();
-    }
-
-    return true;
-}
-
-function failGame(){
-
-    stopTimer();
-
-    gameStarted=false;
-
-    document.getElementById("timer")
-    .textContent="00:00";
-
-    elapsedTime=0;
-
-    document.getElementById("startBtn")
-    .textContent="Start";
-
-    document.getElementById("failBox")
-    .style.display="flex";
-}
-
-function getEndpoints(stick){
-
-    const dx=
-    Math.cos(stick.angle)*
-    stick.length/2;
-
-    const dy=
-    Math.sin(stick.angle)*
-    stick.length/2;
-
-    return{
-        x1:stick.x-dx,
-        y1:stick.y-dy,
-        x2:stick.x+dx,
-        y2:stick.y+dy
-    };
-}
-
-function draw(){
-
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    ctx.fillStyle="black";
-    ctx.beginPath();
-    ctx.arc(
-        dot.x,
-        dot.y,
-        dot.r,
-        0,
-        Math.PI*2
-    );
-    ctx.fill();
-
-    sticks.forEach((s,i)=>{
-
-        const p=getEndpoints(s);
-
-        ctx.strokeStyle=
-        i===selectedStick
-        ? "#d32f2f"
-        : "#a0522d";
-
-        ctx.lineWidth=10;
-        ctx.lineCap="square";
-
-        ctx.beginPath();
-        ctx.moveTo(p.x1,p.y1);
-        ctx.lineTo(p.x2,p.y2);
-        ctx.stroke();
-
-        ctx.fillStyle="#1976d2";
-        ctx.beginPath();
-        ctx.arc(
-            s.x,
-            s.y,
-            14,
-            0,
-            Math.PI*2
-        );
-        ctx.fill();
-    });
-}
-
-function lineDistance(px,py,s){
-
-    const p=getEndpoints(s);
-
-    const A=px-p.x1;
-    const B=py-p.y1;
-    const C=p.x2-p.x1;
-    const D=p.y2-p.y1;
-
-    let param=
-    (A*C+B*D)/(C*C+D*D);
-
-    param=
-    Math.max(0,Math.min(1,param));
-
-    const xx=p.x1+param*C;
-    const yy=p.y1+param*D;
-
-    return Math.hypot(px-xx,py-yy);
-}
-
-function pointerDown(x,y){
-
-    if(!gameStarted) return;
-
-    for(let i = sticks.length - 1; i >= 0; i--){
-
-        // tap anywhere on stick
-        if(lineDistance(x,y,sticks[i]) < 40){
-
-            if(!registerStick(i))
-                return;
-
-            saveState();
-
-            selectedStick = i;
-
-            lastX = x;
-            lastY = y;
-
-            draw();
-            return;
-        }
-    }
-}
-
-function pointerMove(x,y){
-
-    if(selectedStick === null)
-        return;
-
-    if(rotatingStick !== null)
-        return;
-
-    const dx = x - lastX;
-    const dy = y - lastY;
-
-    sticks[selectedStick].x += dx;
-    sticks[selectedStick].y += dy;
-
-    lastX = x;
-    lastY = y;
-
-    draw();
-}
-
-function pointerUp(){
-
-    selectedStick=null;
-    rotatingStick=null;
-    previousTouchAngle=null;
-}
-
-canvas.addEventListener("mousedown",e=>{
-
-    const r=
-    canvas.getBoundingClientRect();
-
-    pointerDown(
-        e.clientX-r.left,
-        e.clientY-r.top
-    );
-
-});
-
-canvas.addEventListener("mousemove",e=>{
-
-    const r=
-    canvas.getBoundingClientRect();
-
-    pointerMove(
-        e.clientX-r.left,
-        e.clientY-r.top
-    );
-
-});
-
-window.addEventListener("mouseup",pointerUp);
-
-/* DESKTOP ROTATION */
-
- canvas.addEventListener("wheel",e=>{
-
-    e.preventDefault();
-
-    const r = canvas.getBoundingClientRect();
-
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
-
-    for(let i=0;i<sticks.length;i++){
-
-        if(lineDistance(x,y,sticks[i]) < 40){
-
-            if(!registerStick(i))
-                return;
-
-            saveState();
-
-            sticks[i].angle +=
-                e.deltaY > 0 ? 0.12 : -0.12;
-
-            draw();
-            return;
-        }
-    }
-
-},{passive:false});
-
-/* MOBILE */
-
-canvas.addEventListener("touchstart",e=>{
-
-    e.preventDefault();
-
-    const r=
-    canvas.getBoundingClientRect();
-
-    if(e.touches.length===1){
-
-        const t=e.touches[0];
-
-        pointerDown(
-            t.clientX-r.left,
-            t.clientY-r.top
-        );
-    }
-
-    if(
-        e.touches.length===2 &&
-        selectedStick!==null
-    ){
-
-        rotatingStick=
-        selectedStick;
-
-        const t1=e.touches[0];
-        const t2=e.touches[1];
-
-        previousTouchAngle=
-        Math.atan2(
-            t2.clientY-t1.clientY,
-            t2.clientX-t1.clientX
-        );
-    }
-
-},{passive:false});
-
- canvas.addEventListener("touchmove",e=>{
-
-    e.preventDefault();
-
-    const r =
-        canvas.getBoundingClientRect();
-
-    if(
-        e.touches.length === 1 &&
-        selectedStick !== null &&
-        rotatingStick === null
-    ){
-
-        const t = e.touches[0];
-
-        pointerMove(
-            t.clientX - r.left,
-            t.clientY - r.top
-        );
-    }
-
-    if(
-        e.touches.length === 2 &&
-        rotatingStick !== null
-    ){
-
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-
-        const angle = Math.atan2(
-            t2.clientY - t1.clientY,
-            t2.clientX - t1.clientX
-        );
-
-        const delta =
-            angle - previousTouchAngle;
-
-        sticks[rotatingStick].angle += delta;
-
-        previousTouchAngle = angle;
-
-        draw();
-    }
-
-},{passive:false});
-
-canvas.addEventListener("touchend",e=>{
-
-    e.preventDefault();
-
-    if(e.touches.length===1){
-
-        rotatingStick=null;
-        previousTouchAngle=null;
-
-        const r=
-        canvas.getBoundingClientRect();
-
-        const t=e.touches[0];
-
-        lastX=t.clientX-r.left;
-        lastY=t.clientY-r.top;
-
-        return;
-    }
-
-    if(e.touches.length===0){
-
-        selectedStick=null;
-        rotatingStick=null;
-        previousTouchAngle=null;
-    }
-
-},{passive:false});
-
-document.getElementById("startBtn")
-.addEventListener("click",()=>{
-
-    if(!gameStarted){
-
-        elapsedTime=0;
-        document.getElementById("timer")
-        .textContent="00:00";
-
-        gameStarted=true;
-
-        document.getElementById("startBtn")
-        .textContent="Stop";
-
-        startTimer();
-    }
-    else{
-
-        stopTimer();
-
-        gameStarted=false;
-
-        document.getElementById("startBtn")
-        .textContent="Start";
-
-        alert(
-            "Tid: "+
-            formatTime(elapsedTime)+
-            "\nPinner flyttet: "+
-            movedSticks.size
-        );
-    }
-
-});
-
-document.getElementById("undoBtn")
-.addEventListener("click",()=>{
-
-    if(history.length===0)
-        return;
-
-    const state=history.pop();
-
-    sticks=
-    JSON.parse(JSON.stringify(state.sticks));
-
-    movedSticks=
-    new Set(state.moved);
-
-    updateStickCount();
-
-    draw();
-});
-
-document.getElementById("resetBtn")
-.addEventListener("click",resetGame);
-
-document.getElementById("retryBtn")
-.addEventListener("click",()=>{
-
-    document.getElementById("failBox")
-    .style.display="none";
-
-    resetGame();
-});
-
-function resetGame(){
-
-    stopTimer();
-
-    gameStarted=false;
-
-    sticks=
-    JSON.parse(JSON.stringify(originalSticks));
-
-    movedSticks=new Set();
-    history=[];
-
-    elapsedTime=0;
-
-    document.getElementById("timer")
-    .textContent="00:00";
-
-    document.getElementById("startBtn")
-    .textContent="Start";
-
-    updateStickCount();
-
-    draw();
-}
-
-updateStickCount();
-draw();
-
-</script>
-</body>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+        <title>Matchstick House – Coin Puzzle</title>
+        <style>
+         :root{
+             --wood-1:#5a331a; --wood-2:#3f2312; --ink:#fff4e0; --muted:#d9bf9c;
+             --red:#d9281e; --gold:#f2c230; --panel:#2a1609; --ok:#5fbf6a; --warn:#ff7a59;
+         }
+         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+         html,body{height:100%;margin:0}
+         body{
+             display:flex;flex-direction:column;
+             background:var(--panel);color:var(--ink);
+             font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+             overflow:hidden;overscroll-behavior:none;
+             padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+         }
+         header{padding:10px 14px 6px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+         h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.01em}
+         .rule{font-size:.82rem;color:var(--muted);margin:0;line-height:1.35}
+         .bar{display:flex;align-items:center;gap:10px;padding:4px 14px 8px;flex-wrap:wrap}
+         .timer{font:700 1.5rem/1 "Courier New",monospace;min-width:6.2ch;color:var(--gold)}
+         .pips{display:flex;gap:5px;align-items:center;font-size:.8rem;color:var(--muted)}
+         .pip{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);transition:background .2s}
+         .pip.on{background:var(--red);border-color:var(--red)}
+         .spacer{flex:1}
+         button{
+             font:600 .95rem Georgia,serif;color:var(--ink);background:#7a4a26;border:0;border-radius:8px;
+             padding:10px 16px;min-height:44px;cursor:pointer;box-shadow:0 2px 0 #2a1609;
+         }
+         button:active{transform:translateY(1px);box-shadow:none}
+         button:disabled{opacity:.4;cursor:default}
+         button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+         #startBtn{background:#2f7d3b}
+         #stopBtn{background:#a8291f}
+         #msg{min-height:1.4em;padding:0 14px 6px;font-size:.9rem;color:var(--muted)}
+         #msg.warn{color:var(--warn)}
+         .stage{flex:1;min-height:0;padding:0 8px 8px;display:flex;justify-content:center;position:relative}
+         svg{
+             width:100%;height:100%;max-width:640px;touch-action:none;user-select:none;-webkit-user-select:none;
+             border-radius:12px;
+             background:
+                 repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 120px),
+                 repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 3px,rgba(0,0,0,.04) 3px 9px),
+                 linear-gradient(180deg,var(--wood-1),var(--wood-2));
+             box-shadow:inset 0 0 40px rgba(0,0,0,.5);
+         }
+         .stick{cursor:grab}
+         .stick.locked{cursor:not-allowed}
+         .stick .sel{fill:none;stroke:var(--gold);stroke-width:2;stroke-dasharray:6 4;opacity:0}
+         .stick.selected .sel{opacity:1}
+         .stick.moved .body{filter:drop-shadow(0 0 3px rgba(255,200,80,.9))}
+         .rot{position:absolute;right:16px;bottom:16px;display:none;gap:8px}
+         .rot.show{display:flex}
+         .rot button{width:52px;height:52px;padding:0;font-size:1.5rem;border-radius:50%;background:#2a1609cc;border:2px solid var(--gold)}
+         .overlay{
+             position:fixed;inset:0;background:rgba(15,7,2,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:10;
+         }
+         .overlay.show{display:flex}
+         .card{background:#3a1f0e;border:2px solid var(--gold);border-radius:14px;padding:22px;max-width:380px;text-align:center}
+         .card h2{margin:0 0 8px;font-size:1.3rem}
+         .card p{margin:0 0 16px;line-height:1.45;color:var(--muted)}
+         .card .big{font:700 2.2rem "Courier New",monospace;color:var(--gold);margin:6px 0 14px}
+         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+        </style>
+    </head>
+    <body>
+
+        <header>
+            <h1>The coin outside the house</h1>
+            <p class="rule">Move exactly 3 of the 5 matches so the coin ends up inside a closed house made of all 5 matches.</p>
+        </header>
+
+        <div class="bar">
+            <div class="timer" id="timer" aria-live="off">00:00.0</div>
+            <div class="pips" title="Matches moved"><span>Moved</span>
+                <span class="pip" id="p1"></span><span class="pip" id="p2"></span><span class="pip" id="p3"></span>
+            </div>
+            <div class="spacer"></div>
+            <button id="startBtn">Start</button>
+            <button id="stopBtn" disabled>Stop</button>
+            <button id="resetBtn" title="Put all matches back">Reset</button>
+        </div>
+        <div id="msg" role="status">Press Start to begin. Drag a match to move it; turn it with two fingers.</div>
+
+        <div class="stage">
+            <svg id="board" viewBox="0 0 460 500" preserveAspectRatio="xMidYMid meet" aria-label="Matchstick puzzle board">
+                <defs>
+                    <linearGradient id="woodStick" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#f1d49a"/><stop offset=".55" stop-color="#d9b06b"/><stop offset="1" stop-color="#b98a48"/>
+                    </linearGradient>
+                    <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#ff5a45"/><stop offset="1" stop-color="#b5160f"/>
+                    </linearGradient>
+                    <radialGradient id="coinGrad" cx=".35" cy=".3" r=".8">
+                        <stop offset="0" stop-color="#fff2a8"/><stop offset=".5" stop-color="#f2c230"/><stop offset="1" stop-color="#a87414"/>
+                    </radialGradient>
+                </defs>
+                <g id="coin">
+                    <circle cx="330" cy="165" r="17" fill="url(#coinGrad)" stroke="#8a5d10" stroke-width="2"/>
+                    <circle cx="330" cy="165" r="11" fill="none" stroke="#b98a1c" stroke-width="1.5"/>
+                </g>
+                <g id="sticks"></g>
+            </svg>
+            <div class="rot" id="rotBtns">
+                <button id="rotL" aria-label="Rotate selected match left">&#8634;</button>
+                <button id="rotR" aria-label="Rotate selected match right">&#8635;</button>
+            </div>
+        </div>
+
+        <div class="overlay" id="warnOv">
+            <div class="card">
+                <h2>Fourth match moved</h2>
+                <p>You may only move 3 matches. The board has been reset and the timer cleared. Press Start to try again from the beginning.</p>
+                <button id="warnOk">OK</button>
+            </div>
+        </div>
+
+        <div class="overlay" id="winOv">
+            <div class="card">
+                <h2>The coin is inside!</h2>
+                <div class="big" id="winTime">00:00.0</div>
+                <p id="winBest"></p>
+                <button id="winOk">Play again</button>
+            </div>
+        </div>
+
+        <script>
+         (() => {
+             const W = 460, H = 500, L = 220, TOL = 16;
+             const COIN = {x: 330, y: 165, r: 17};
+             const MOVE_LIMIT = 3;
+             const svg = document.getElementById('board');
+             const gSticks = document.getElementById('sticks');
+             const NS = 'http://www.w3.org/2000/svg';
+
+             // House geometry: equilateral roof, 220-long matches. Coin sits outside, right of the roof.
+             const hx = 110, drop = Math.sqrt(L*L - hx*hx);
+             const A = {x:192, y:40}, lx = 82, rx = 302, ty = 40 + drop, by = ty + L;
+             const defs = [
+                 {a:A, b:{x:lx,y:ty}},        // left roof
+                 {a:A, b:{x:rx,y:ty}},        // right roof
+                 {a:{x:lx,y:ty}, b:{x:lx,y:by}}, // left wall
+                 {a:{x:rx,y:ty}, b:{x:rx,y:by}}, // right wall
+                 {a:{x:lx,y:by}, b:{x:rx,y:by}}  // floor
+             ];
+
+             const sticks = defs.map((d,i) => {
+                 const cx = (d.a.x+d.b.x)/2, cy = (d.a.y+d.b.y)/2;
+                 const ang = Math.atan2(d.b.y-d.a.y, d.b.x-d.a.x);
+                 return {id:i, cx, cy, ang, home:{cx,cy,ang}, el:null};
+             });
+
+             // ---------- build DOM ----------
+             sticks.forEach(s => {
+                 const g = document.createElementNS(NS,'g');
+                 g.setAttribute('class','stick locked');
+                 g.dataset.id = s.id;
+                 g.innerHTML =
+                     `<rect class="hit" x="${-L/2-8}" y="-20" width="${L+16}" height="40" fill="transparent"/>
+       <rect class="sel" x="${-L/2-5}" y="-11" width="${L+10}" height="22" rx="11"/>
+       <g class="body">
+         <rect x="${-L/2}" y="-4.5" width="${L}" height="9" rx="4.5" fill="url(#woodStick)" stroke="#8d6531" stroke-width=".8"/>
+         <rect x="${-L/2-2}" y="-6.5" width="20" height="13" rx="6.5" fill="url(#headGrad)" stroke="#7d0e09" stroke-width=".8"/>
+       </g>`;
+                 gSticks.appendChild(g);
+                 s.el = g;
+             });
+
+             const draw = s => s.el.setAttribute('transform',
+                                                 `translate(${s.cx.toFixed(2)} ${s.cy.toFixed(2)}) rotate(${(s.ang*180/Math.PI).toFixed(2)})`);
+             const drawAll = () => sticks.forEach(draw);
+
+             // ---------- state ----------
+             let state = 'idle';            // idle | running | finished
+             let t0 = 0, timerId = null, elapsed = 0;
+             const moved = new Set();
+             let selected = null;
+
+             const $ = id => document.getElementById(id);
+             const startBtn = $('startBtn'), stopBtn = $('stopBtn'), resetBtn = $('resetBtn');
+             const msg = $('msg'), timerEl = $('timer'), rotBtns = $('rotBtns');
+
+             const fmt = ms => {
+                 const t = Math.floor(ms/100), tenth = t%10, sec = Math.floor(t/10)%60, min = Math.floor(t/600);
+                 return String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0')+'.'+tenth;
+             };
+             const say = (t, warn=false) => { msg.textContent = t; msg.classList.toggle('warn', warn); };
+
+             function updatePips(){
+                 [1,2,3].forEach(n => $('p'+n).classList.toggle('on', moved.size >= n));
+                 sticks.forEach(s => s.el.classList.toggle('moved', moved.has(s.id)));
+             }
+             function setLocked(lock){ sticks.forEach(s => s.el.classList.toggle('locked', lock)); }
+             function select(s){
+                 selected = s;
+                 sticks.forEach(x => x.el.classList.toggle('selected', x === s));
+                 rotBtns.classList.toggle('show', !!s && state === 'running');
+             }
+
+             function resetBoard(){
+                 sticks.forEach(s => { s.cx = s.home.cx; s.cy = s.home.cy; s.ang = s.home.ang; });
+                 moved.clear(); select(null); drawAll(); updatePips();
+             }
+             function stopTimer(){ clearInterval(timerId); timerId = null; }
+
+             function fullReset(){
+                 stopTimer(); state = 'idle'; elapsed = 0; timerEl.textContent = '00:00.0';
+                 pointers.clear(); gesture = null;
+                 resetBoard(); setLocked(true);
+                 startBtn.disabled = false; stopBtn.disabled = true;
+                 say('Press Start to begin. Drag a match to move it; turn it with two fingers.');
+             }
+
+             function start(){
+                 if (state === 'running') return;
+                 fullReset();
+                 state = 'running'; t0 = performance.now();
+                 timerId = setInterval(() => { elapsed = performance.now()-t0; timerEl.textContent = fmt(elapsed); }, 50);
+                 setLocked(false); startBtn.disabled = true; stopBtn.disabled = false;
+                 say('Go! Move up to 3 matches. Rotate with two fingers, the mouse wheel, or the round buttons.');
+             }
+
+             function violation(){
+                 stopTimer(); pointers.clear(); gesture = null;
+                 fullReset();
+                 $('warnOv').classList.add('show');
+                 say('You moved a 4th match. Start again from the beginning.', true);
+             }
+
+             // ---------- solution check ----------
+             const endpoints = s => {
+                 const c = Math.cos(s.ang)*L/2, n = Math.sin(s.ang)*L/2;
+                 return [{x:s.cx-c, y:s.cy-n}, {x:s.cx+c, y:s.cy+n}];
+             };
+             function segInter(p1,p2,p3,p4){
+                 const d = (a,b,c) => (c.x-a.x)*(b.y-a.y) - (c.y-a.y)*(b.x-a.x);
+                 const d1=d(p3,p4,p1), d2=d(p3,p4,p2), d3=d(p1,p2,p3), d4=d(p1,p2,p4);
+                 return ((d1>0)!==(d2>0)) && ((d3>0)!==(d4>0));
+             }
+             function distToSeg(p,a,b){
+                 const dx=b.x-a.x, dy=b.y-a.y, t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+                 return Math.hypot(p.x-(a.x+t*dx), p.y-(a.y+t*dy));
+             }
+             function checkSolved(){
+                 const pts = []; // 10 endpoints
+                 sticks.forEach(s => endpoints(s).forEach(p => pts.push(p)));
+                 const parent = pts.map((_,i)=>i);
+                 const find = i => parent[i]===i ? i : (parent[i]=find(parent[i]));
+                 for (let i=0;i<pts.length;i++) for (let j=i+1;j<pts.length;j++)
+                     if (Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y) <= TOL) parent[find(i)] = find(j);
+                 const groups = {};
+                 pts.forEach((_,i) => (groups[find(i)] = groups[find(i)] || []).push(i));
+                 const nodes = Object.values(groups);
+                 if (nodes.length !== 5 || nodes.some(g => g.length !== 2)) return false;
+                 // each stick must join two different nodes
+                 const nodeOf = i => find(i);
+                 for (let s=0;s<5;s++) if (nodeOf(2*s) === nodeOf(2*s+1)) return false;
+                 // walk the cycle
+                 const used = new Set(); const poly = [];
+                 let curEnd = 0, curNode = nodeOf(0);
+                 for (let k=0;k<5;k++){
+                     const s = curEnd>>1;
+                     if (used.has(s)) return false; used.add(s);
+                     const startIdx = curEnd, otherIdx = curEnd^1;
+                     const g = groups[nodeOf(startIdx)];
+                     poly.push({x:g.reduce((a,i)=>a+pts[i].x,0)/2, y:g.reduce((a,i)=>a+pts[i].y,0)/2});
+                     const nextNode = nodeOf(otherIdx);
+                     const nextEnd = groups[nextNode].find(i => i !== otherIdx);
+                     curEnd = nextEnd;
+                 }
+                 if (nodeOf(curEnd) !== nodeOf(0) && used.size !== 5) return false;
+                 if (used.size !== 5) return false;
+                 // no crossing edges
+                 for (let i=0;i<5;i++) for (let j=i+2;j<5;j++){
+                     if (i===0 && j===4) continue;
+                     if (segInter(poly[i],poly[(i+1)%5],poly[j],poly[(j+1)%5])) return false;
+                 }
+                 // coin inside and clear of the sticks
+                 let inside = false;
+                 for (let i=0,j=4;i<5;j=i++){
+                     const a=poly[i], b=poly[j];
+                     if (((a.y>COIN.y)!==(b.y>COIN.y)) && (COIN.x < (b.x-a.x)*(COIN.y-a.y)/(b.y-a.y)+a.x)) inside = !inside;
+                 }
+                 if (!inside) return false;
+                 for (let i=0;i<5;i++) if (distToSeg(COIN, poly[i], poly[(i+1)%5]) < COIN.r) return false;
+                 return true;
+             }
+
+             function stop(){
+                 if (state !== 'running') return;
+                 if (checkSolved()){
+                     elapsed = performance.now()-t0; stopTimer(); state = 'finished';
+                     timerEl.textContent = fmt(elapsed);
+                     setLocked(true); select(null);
+                     startBtn.disabled = false; stopBtn.disabled = true;
+                     let best = null;
+                     try { best = parseFloat(localStorage.getItem('matchHouseBest')); } catch(e){}
+                     let line = '';
+                     if (!best || elapsed < best){ line = 'New best time!'; try { localStorage.setItem('matchHouseBest', String(elapsed)); } catch(e){} }
+                     else line = 'Best time: ' + fmt(best);
+                     $('winTime').textContent = fmt(elapsed);
+                     $('winBest').textContent = line;
+                     $('winOv').classList.add('show');
+                     say('Solved in ' + fmt(elapsed) + '.');
+                 } else {
+                     say('Not a solution yet. All 5 matches must form one closed house with the coin inside. The timer keeps running.', true);
+                 }
+             }
+
+             // ---------- moving matches ----------
+             const SIGNIF = (s, p) => Math.hypot(p.cx-s.home.cx, p.cy-s.home.cy) > 3 ||
+                                    Math.abs(angDiff(p.ang, s.home.ang)) > 0.035;
+             const angDiff = (a,b) => { let d = a-b; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; return d; };
+             const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+
+             // returns false if a violation happened
+             function applyPose(s, cx, cy, ang){
+                 const p = {cx: clamp(cx, 10, W-10), cy: clamp(cy, 10, H-10), ang};
+                 if (SIGNIF(s, p) && !moved.has(s.id)){
+                     if (moved.size >= MOVE_LIMIT){ violation(); return false; }
+                     moved.add(s.id); updatePips();
+                 }
+                 s.cx = p.cx; s.cy = p.cy; s.ang = p.ang; draw(s);
+                 return true;
+             }
+
+             const toSvg = e => {
+                 const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+                 const r = pt.matrixTransform(svg.getScreenCTM().inverse());
+                 return {x:r.x, y:r.y};
+             };
+
+             const pointers = new Map(); // id -> {x,y}
+             let gesture = null;         // {stick, ids, ...}
+
+             function beginGesture(){
+                 if (!gesture) return;
+                 const s = gesture.stick;
+                 const ids = [...gesture.ids].filter(id => pointers.has(id));
+                 gesture.ids = new Set(ids);
+                 if (ids.length === 0){ gesture = null; return; }
+                 gesture.s0 = {cx:s.cx, cy:s.cy, ang:s.ang};
+                 if (ids.length === 1){
+                     const p = pointers.get(ids[0]);
+                     gesture.mode = 1; gesture.off = {x:s.cx-p.x, y:s.cy-p.y};
+                 } else {
+                     const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
+                     gesture.mode = 2;
+                     gesture.a0 = Math.atan2(q.y-p.y, q.x-p.x);
+                     gesture.m0 = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
+                     gesture.d = {x:s.cx-gesture.m0.x, y:s.cy-gesture.m0.y};
+                 }
+             }
+
+             svg.addEventListener('pointerdown', e => {
+                 if (state !== 'running') return;
+                 const hit = e.target.closest && e.target.closest('.stick');
+                 const pos = toSvg(e);
+                 if (hit && !gesture){
+                     const s = sticks[+hit.dataset.id];
+                     svg.setPointerCapture(e.pointerId);
+                     pointers.set(e.pointerId, pos);
+                     select(s);
+                     gsap_bringFront(s);
+                     gesture = {stick:s, ids:new Set([e.pointerId])};
+                     beginGesture();
+                     e.preventDefault();
+                 } else if (gesture && gesture.ids.size < 2){
+                     // second finger: anywhere on the board (or on the same match)
+                     if (hit && sticks[+hit.dataset.id] !== gesture.stick) { /* other stick: still use as rotation finger */ }
+                     svg.setPointerCapture(e.pointerId);
+                     pointers.set(e.pointerId, pos);
+                     gesture.ids.add(e.pointerId);
+                     beginGesture();
+                     e.preventDefault();
+                 } else if (!hit){
+                     select(null);
+                 }
+             });
+
+             svg.addEventListener('pointermove', e => {
+                 if (!pointers.has(e.pointerId) || !gesture || state !== 'running') return;
+                 pointers.set(e.pointerId, toSvg(e));
+                 const s = gesture.stick, ids = [...gesture.ids];
+                 if (gesture.mode === 1 && ids.length === 1){
+                     const p = pointers.get(ids[0]);
+                     applyPose(s, p.x+gesture.off.x, p.y+gesture.off.y, gesture.s0.ang);
+                 } else if (gesture.mode === 2 && ids.length >= 2){
+                     const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
+                     const a = Math.atan2(q.y-p.y, q.x-p.x), da = a - gesture.a0;
+                     const m = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
+                     const c = Math.cos(da), n = Math.sin(da);
+                     applyPose(s, m.x + gesture.d.x*c - gesture.d.y*n, m.y + gesture.d.x*n + gesture.d.y*c, gesture.s0.ang + da);
+                 }
+                 e.preventDefault();
+             });
+
+             const endPointer = e => {
+                 if (!pointers.has(e.pointerId)) return;
+                 pointers.delete(e.pointerId);
+                 if (gesture){ gesture.ids.delete(e.pointerId); beginGesture(); }
+             };
+             svg.addEventListener('pointerup', endPointer);
+             svg.addEventListener('pointercancel', endPointer);
+             svg.addEventListener('lostpointercapture', endPointer);
+
+             function gsap_bringFront(s){ gSticks.appendChild(s.el); }
+
+             // wheel / buttons / keyboard rotation for mouse users
+             function rotateSelected(deg){
+                 if (state !== 'running' || !selected) return;
+                 applyPose(selected, selected.cx, selected.cy, selected.ang + deg*Math.PI/180);
+             }
+             svg.addEventListener('wheel', e => {
+                 if (state !== 'running' || !selected) return;
+                 e.preventDefault();
+                 rotateSelected(e.deltaY > 0 ? 6 : -6);
+             }, {passive:false});
+             $('rotL').addEventListener('click', () => rotateSelected(-10));
+             $('rotR').addEventListener('click', () => rotateSelected(10));
+             window.addEventListener('keydown', e => {
+                 if (e.key === 'q' || e.key === 'Q') rotateSelected(-6);
+                 if (e.key === 'e' || e.key === 'E') rotateSelected(6);
+             });
+
+             // prevent page zoom/scroll gestures on iOS
+             ['gesturestart','gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+
+             startBtn.addEventListener('click', start);
+             stopBtn.addEventListener('click', stop);
+             resetBtn.addEventListener('click', fullReset);
+             $('warnOk').addEventListener('click', () => $('warnOv').classList.remove('show'));
+             $('winOk').addEventListener('click', () => { $('winOv').classList.remove('show'); fullReset(); });
+
+             fullReset();
+         })();
+        </script>
+    </body>
 </html>
