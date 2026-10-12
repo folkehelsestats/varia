@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+        <title>House Stick Puzzle</title>
+
+        <style>
+
+         body{
+             margin:0;
+             padding:10px;
+             font-family:Arial,sans-serif;
+             text-align:center;
+             background:#f4f4f4;
+         }
+
+         h2{
+             margin:10px 0 5px;
+         }
+
+         #status{
+             font-size:18px;
+             font-weight:bold;
+             margin-bottom:10px;
+         }
+
+         #controls{
+             display:flex;
+             flex-wrap:wrap;
+             justify-content:center;
+             gap:10px;
+             margin-bottom:10px;
+         }
+
+         button{
+             padding:12px 18px;
+             font-size:16px;
+             border:none;
+             border-radius:8px;
+             cursor:pointer;
+             background:#1976d2;
+             color:white;
+             min-width:120px;
+         }
+
+         canvas{
+             background:white;
+             border:1px solid #999;
+             width:100%;
+             max-width:700px;
+             height:auto;
+             touch-action:none;
+         }
+
+         #failBox{
+             position:fixed;
+             inset:0;
+             display:none;
+             justify-content:center;
+             align-items:center;
+             background:#b71c1c;
+             color:white;
+             z-index:9999;
+         }
+
+         .failContent{
+             text-align:center;
+             padding:20px;
+         }
+
+         .failTitle{
+             font-size:min(18vw,100px);
+             font-weight:bold;
+         }
+
+         .failText{
+             font-size:min(6vw,30px);
+             margin:20px 0;
+         }
+
+        </style>
+    </head>
+    <body>
+
+        <h2>Flytt 3 pinner</h2>
+
+        <div id="status">
+            Tid: <span id="timer">00:00</span>
+            <br>
+            Pinner flyttet:
+            <span id="stickCount">0 / 3</span>
+        </div>
+
+        <div id="controls">
+            <button id="startBtn">Start</button>
+            <button id="undoBtn">Angre</button>
+            <button id="resetBtn">Nullstill</button>
+        </div>
+
+        <canvas id="canvas"
+                width="700"
+                height="500"></canvas>
+
+        <div id="failBox">
+            <div class="failContent">
+                <div class="failTitle">
+                    FAIL
+                </div>
+
+                <div class="failText">
+                    Du flyttet mer enn 3 pinner
+                    <br>
+                    Prøv igjen
+                </div>
+
+                <button id="retryBtn">
+                    Prøv igjen
+                </button>
+            </div>
+        </div>
+
+        <script>
+
+         const canvas =
+             document.getElementById("canvas");
+
+         const ctx =
+             canvas.getContext("2d");
+
+         const dot = {
+             x:445,
+             y:105,
+             r:10
+         };
+
+         const originalSticks = [
+             // left wall
+             { x: 280, y: 240, length: 140, angle: Math.PI / 2 },
+
+             // right wall
+             { x: 420, y: 240, length: 140, angle: Math.PI / 2 },
+
+             // floor
+             { x: 350, y: 310, length: 140, angle: 0 },
+
+             // left roof
+             { x: 315, y: 145, length: 140, angle: -1.05 },
+
+             // right roof
+             { x: 385, y: 145, length: 140, angle: 1.05 }
+         ];
+         // const originalSticks = [
+         //     {x:250,y:250,length:140,angle:Math.PI/2},
+         //     {x:450,y:250,length:140,angle:Math.PI/2},
+         //     {x:350,y:320,length:200,angle:0},
+         //     {x:300,y:145,length:130,angle:-0.68},
+         //     {x:400,y:145,length:130,angle:0.68}
+         // ];
+
+         let sticks =
+             JSON.parse(JSON.stringify(originalSticks));
+
+         let movedSticks = new Set();
+         let history = [];
+
+         let selectedStick = null;
+         let moving = false;
+
+         let gameStarted = false;
+         let timerInterval = null;
+         let startTime = 0;
+         let elapsedTime = 0;
+
+         let lastX = 0;
+         let lastY = 0;
+
+         let touchRotateStick = null;
+         let previousTouchAngle = null;
+
+         function updateStickCount(){
+             document.getElementById("stickCount").textContent =
+                 movedSticks.size + " / 3";
+         }
+
+         function formatTime(seconds){
+
+             const mm =
+                 String(Math.floor(seconds/60))
+                     .padStart(2,"0");
+
+             const ss =
+                 String(seconds%60)
+                     .padStart(2,"0");
+
+             return mm + ":" + ss;
+         }
+
+         function startTimer(){
+
+             startTime = Date.now();
+
+             timerInterval =
+                 setInterval(()=>{
+
+                     elapsedTime =
+                         Math.floor(
+                             (Date.now()-startTime)/1000
+                         );
+
+                     document.getElementById("timer")
+                             .textContent =
+                                 formatTime(elapsedTime);
+
+                 },1000);
+         }
+
+         function stopTimer(){
+
+             clearInterval(timerInterval);
+         }
+
+         function saveState(){
+
+             history.push({
+
+                 sticks:
+         JSON.parse(
+             JSON.stringify(sticks)
+         ),
+
+                 moved:
+         Array.from(movedSticks)
+
+             });
+
+             if(history.length>100){
+                 history.shift();
+             }
+         }
+
+         function getEndpoints(stick){
+
+             const dx =
+                 Math.cos(stick.angle) *
+             stick.length/2;
+
+             const dy =
+                 Math.sin(stick.angle) *
+             stick.length/2;
+
+             return {
+
+                 x1:stick.x-dx,
+                 y1:stick.y-dy,
+
+                 x2:stick.x+dx,
+                 y2:stick.y+dy
+
+             };
+         }
+
+         function draw(){
+
+             ctx.clearRect(
+                 0,
+                 0,
+                 canvas.width,
+                 canvas.height
+             );
+
+             ctx.fillStyle="black";
+
+             ctx.beginPath();
+             ctx.arc(
+                 dot.x,
+                 dot.y,
+                 dot.r,
+                 0,
+                 Math.PI*2
+             );
+             ctx.fill();
+
+             sticks.forEach((s)=>{
+
+                 const p =
+                     getEndpoints(s);
+
+                 ctx.strokeStyle =
+                     "#8B4513";
+
+                 ctx.lineWidth = 8;
+
+                 ctx.beginPath();
+
+                 ctx.moveTo(
+                     p.x1,
+                     p.y1
+                 );
+
+                 ctx.lineTo(
+                     p.x2,
+                     p.y2
+                 );
+
+                 ctx.stroke();
+
+                 ctx.fillStyle =
+                     "#1976d2";
+
+                 ctx.beginPath();
+
+                 ctx.arc(
+                     s.x,
+                     s.y,
+                     8,
+                     0,
+                     Math.PI*2
+                 );
+
+                 ctx.fill();
+
+             });
+
+         }
+
+         function pointDistance(
+             x1,y1,x2,y2){
+
+             return Math.hypot(
+                 x2-x1,
+                 y2-y1
+             );
+         }
+
+         function lineDistance(px,py,s){
+
+             const p =
+                 getEndpoints(s);
+
+             const A=px-p.x1;
+             const B=py-p.y1;
+             const C=p.x2-p.x1;
+             const D=p.y2-p.y1;
+
+             let param =
+                 (A*C+B*D)/
+             (C*C+D*D);
+
+             param =
+                 Math.max(
+                     0,
+                     Math.min(
+                         1,
+                         param
+                     )
+                 );
+
+             const xx =
+                 p.x1+param*C;
+
+             const yy =
+                 p.y1+param*D;
+
+             return Math.hypot(
+                 px-xx,
+                 py-yy
+             );
+         }
+
+         function failGame(){
+
+             stopTimer();
+
+             gameStarted = false;
+
+             elapsedTime = 0;
+
+             document
+                 .getElementById("timer")
+                 .textContent =
+                     "00:00";
+
+             document
+                 .getElementById("startBtn")
+                 .textContent =
+                     "Start";
+
+             document
+                 .getElementById("failBox")
+                 .style.display =
+                     "flex";
+         }
+
+         function registerStick(index){
+
+             if(
+                 !movedSticks.has(index)
+             ){
+
+                 if(
+                     movedSticks.size >= 3
+                 ){
+                     failGame();
+                     return false;
+                 }
+
+                 movedSticks.add(index);
+
+                 updateStickCount();
+             }
+
+             return true;
+         }
+
+         function pointerDown(x,y){
+
+             if(!gameStarted)
+                 return;
+
+             for(
+                 let i =
+                     sticks.length-1;
+                 i>=0;
+                 i--
+             ){
+
+                 if(
+                     lineDistance(
+                         x,y,
+                         sticks[i]
+                     ) < 15
+                 ){
+
+                     if(
+                         !registerStick(i)
+                     ){
+                         return;
+                     }
+
+                     saveState();
+
+                     selectedStick=i;
+                     moving=true;
+
+                     lastX=x;
+                     lastY=y;
+
+                     return;
+                 }
+             }
+         }
+
+         function pointerMove(x,y){
+
+             if(
+                 selectedStick===null
+             )
+                 return;
+
+             const dx =
+                 x-lastX;
+
+             const dy =
+                 y-lastY;
+
+             sticks
+             [selectedStick]
+                 .x += dx;
+
+             sticks
+             [selectedStick]
+                 .y += dy;
+
+             lastX=x;
+             lastY=y;
+
+             draw();
+         }
+
+         function pointerUp(){
+
+             moving=false;
+             selectedStick=null;
+         }
+
+         canvas.addEventListener(
+             "mousedown",
+             e=>{
+
+                 const r =
+                     canvas.getBoundingClientRect();
+
+                 pointerDown(
+                     e.clientX-r.left,
+                     e.clientY-r.top
+                 );
+
+         });
+
+         canvas.addEventListener(
+             "mousemove",
+             e=>{
+
+                 const r =
+                     canvas.getBoundingClientRect();
+
+                 pointerMove(
+                     e.clientX-r.left,
+                     e.clientY-r.top
+                 );
+
+         });
+
+         window.addEventListener(
+             "mouseup",
+             pointerUp
+         );
+
+         /* TOUCH */
+
+         canvas.addEventListener(
+             "touchstart",
+             e=>{
+
+                 e.preventDefault();
+
+                 const r =
+                     canvas.getBoundingClientRect();
+
+                 if(
+                     e.touches.length===1
+                 ){
+
+                     const t =
+                         e.touches[0];
+
+                     pointerDown(
+                         t.clientX-r.left,
+                         t.clientY-r.top
+                     );
+                 }
+
+                 if(
+                     e.touches.length===2 &&
+                     selectedStick !== null
+                 ){
+
+                     touchRotateStick =
+                         selectedStick;
+
+                     const t1 =
+                         e.touches[0];
+
+                     const t2 =
+                         e.touches[1];
+
+                     previousTouchAngle =
+                         Math.atan2(
+                             t2.clientY-
+                             t1.clientY,
+
+                             t2.clientX-
+                             t1.clientX
+                         );
+                 }
+
+             },
+             {passive:false}
+         );
+
+         canvas.addEventListener(
+             "touchmove",
+             e=>{
+
+                 e.preventDefault();
+
+                 const r =
+                     canvas.getBoundingClientRect();
+
+                 if(
+                     e.touches.length===1
+                 ){
+
+                     const t =
+                         e.touches[0];
+
+                     pointerMove(
+                         t.clientX-r.left,
+                         t.clientY-r.top
+                     );
+                 }
+
+                 if(
+                     e.touches.length===2 &&
+                     touchRotateStick!==null
+                 ){
+
+                     const t1 =
+                         e.touches[0];
+
+                     const t2 =
+                         e.touches[1];
+
+                     const angle =
+                         Math.atan2(
+                             t2.clientY-t1.clientY,
+                             t2.clientX-t1.clientX
+                         );
+
+                     const delta =
+                         angle-
+                         previousTouchAngle;
+
+                     sticks[
+                         touchRotateStick
+                     ].angle += delta;
+
+                     previousTouchAngle =
+                         angle;
+
+                     draw();
+                 }
+
+             },
+             {passive:false}
+         );
+
+         canvas.addEventListener(
+             "touchend",
+             e=>{
+
+                 pointerUp();
+
+                 touchRotateStick =
+                     null;
+
+                 previousTouchAngle =
+                     null;
+
+             },
+             {passive:false}
+         );
+
+         document
+             .getElementById("startBtn")
+             .addEventListener(
+                 "click",
+                 ()=>{
+
+                     if(!gameStarted){
+
+                         gameStarted=true;
+
+                         elapsedTime=0;
+
+                         document
+                             .getElementById("timer")
+                             .textContent=
+                                 "00:00";
+
+                         document
+                             .getElementById("startBtn")
+                             .textContent=
+                                 "Stop";
+
+                         startTimer();
+                     }
+                     else{
+
+                         stopTimer();
+
+                         gameStarted=false;
+
+                         document
+                             .getElementById("startBtn")
+                             .textContent=
+                                 "Start";
+
+                         alert(
+                             "Tid: " +
+                             formatTime(
+                                 elapsedTime
+                             ) +
+                             "\nPinner flyttet: "+
+                             movedSticks.size
+                         );
+                     }
+
+             });
+
+         document
+             .getElementById("undoBtn")
+             .addEventListener(
+                 "click",
+                 ()=>{
+
+                     if(
+                         history.length===0
+                     ) return;
+
+                     const state =
+                         history.pop();
+
+                     sticks =
+                         JSON.parse(
+                             JSON.stringify(
+                                 state.sticks
+                             )
+                         );
+
+                     movedSticks =
+                         new Set(
+                             state.moved
+                         );
+
+                     stopTimer();
+
+                     elapsedTime=0;
+
+                     document
+                         .getElementById("timer")
+                         .textContent=
+                             "00:00";
+
+                     if(gameStarted){
+                         startTimer();
+                     }
+
+                     updateStickCount();
+
+                     draw();
+
+             });
+
+         document
+             .getElementById("resetBtn")
+             .addEventListener(
+                 "click",
+                 resetGame
+             );
+
+         document
+             .getElementById("retryBtn")
+             .addEventListener(
+                 "click",
+                 ()=>{
+
+                     document
+                         .getElementById("failBox")
+                         .style.display =
+                             "none";
+
+                     resetGame();
+
+             });
+
+         function resetGame(){
+
+             stopTimer();
+
+             gameStarted=false;
+
+             sticks=
+                 JSON.parse(
+                     JSON.stringify(
+                         originalSticks
+                     )
+                 );
+
+             movedSticks =
+                 new Set();
+
+             history=[];
+
+             elapsedTime=0;
+
+             document
+                 .getElementById("timer")
+                 .textContent=
+                     "00:00";
+
+             document
+                 .getElementById("startBtn")
+                 .textContent=
+                     "Start";
+
+             updateStickCount();
+
+             draw();
+         }
+
+         updateStickCount();
+         draw();
+
+        </script>
+
+    </body>
+</html>
