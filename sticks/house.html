@@ -85,8 +85,8 @@
             </div>
             <div class="spacer"></div>
             <button id="startBtn">Start</button>
-            <button id="stopBtn" disabled>Stop</button>
-            <button id="resetBtn" title="Put all matches back">Reset</button>
+            <button id="stopBtn" disabled>Stopp</button>
+            <button id="resetBtn" title="Put all matches back">Nullstill</button>
         </div>
         <div id="msg" role="status"> Trykk på Start for å begynne. Dra en fyrstikk for å flytte den, og bruk to fingre for å rotere den.</div>
 
@@ -134,7 +134,8 @@
 
         <script>
          (() => {
-             const W = 460, H = 500, L = 220, TOL = 16;
+             // TOL is how close the stick to could as joined
+             const W = 460, H = 500, L = 220, TOL = 18;
              const COIN = {x: 330, y: 165, r: 17};
              const MOVE_LIMIT = 3;
              const svg = document.getElementById('board');
