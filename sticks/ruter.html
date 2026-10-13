@@ -1,410 +1,408 @@
 <!DOCTYPE html>
 <html lang="no">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Fyrstikkruter – flytt 3, få 3 ruter</title>
-<style>
-  :root{
-    --wood-1:#5a331a; --wood-2:#3f2312; --ink:#fff4e0; --muted:#d9bf9c;
-    --red:#d9281e; --gold:#f2c230; --panel:#2a1609; --ok:#5fbf6a; --warn:#ff7a59;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;margin:0}
-  body{
-    display:flex;flex-direction:column;
-    background:var(--panel);color:var(--ink);
-    font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
-    overflow:hidden;overscroll-behavior:none;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  }
-  header{padding:10px 14px 6px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.01em}
-  .rule{font-size:.82rem;color:var(--muted);margin:0;line-height:1.35}
-  .bar{display:flex;align-items:center;gap:10px;padding:4px 14px 8px;flex-wrap:wrap}
-  .timer{font:700 1.5rem/1 "Courier New",monospace;min-width:6.2ch;color:var(--gold)}
-  .pips{display:flex;gap:5px;align-items:center;font-size:.8rem;color:var(--muted)}
-  .pip{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);transition:background .2s}
-  .pip.on{background:var(--red);border-color:var(--red)}
-  .spacer{flex:1}
-  button{
-    font:600 .95rem Georgia,serif;color:var(--ink);background:#7a4a26;border:0;border-radius:8px;
-    padding:10px 16px;min-height:44px;cursor:pointer;box-shadow:0 2px 0 #2a1609;
-  }
-  button:active{transform:translateY(1px);box-shadow:none}
-  button:disabled{opacity:.4;cursor:default}
-  button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-  #startBtn{background:#2f7d3b}
-  #stopBtn{background:#a8291f}
-  #msg{min-height:1.4em;padding:0 14px 6px;font-size:.9rem;color:var(--muted)}
-  #msg.warn{color:var(--warn)}
-  .stage{flex:1;min-height:0;padding:0 8px 8px;display:flex;justify-content:center;position:relative}
-  svg{
-    width:100%;height:100%;max-width:640px;touch-action:none;user-select:none;-webkit-user-select:none;
-    border-radius:12px;
-    background:
-      repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 120px),
-      repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 3px,rgba(0,0,0,.04) 3px 9px),
-      linear-gradient(180deg,var(--wood-1),var(--wood-2));
-    box-shadow:inset 0 0 40px rgba(0,0,0,.5);
-  }
-  .stick{cursor:grab}
-  .stick.locked{cursor:not-allowed}
-  .stick .sel{fill:none;stroke:var(--gold);stroke-width:2;stroke-dasharray:6 4;opacity:0}
-  .stick.selected .sel{opacity:1}
-  .stick.moved .body{filter:drop-shadow(0 0 3px rgba(255,200,80,.9))}
-  .rot{position:absolute;right:16px;bottom:16px;display:none;gap:8px}
-  .rot.show{display:flex}
-  .rot button{width:52px;height:52px;padding:0;font-size:1.5rem;border-radius:50%;background:#2a1609cc;border:2px solid var(--gold)}
-  .overlay{
-    position:fixed;inset:0;background:rgba(15,7,2,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:10;
-  }
-  .overlay.show{display:flex}
-  .card{background:#3a1f0e;border:2px solid var(--gold);border-radius:14px;padding:22px;max-width:380px;text-align:center}
-  .card h2{margin:0 0 8px;font-size:1.3rem}
-  .card p{margin:0 0 16px;line-height:1.45;color:var(--muted)}
-  .card .big{font:700 2.2rem "Courier New",monospace;color:var(--gold);margin:6px 0 14px}
-  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>
-</head>
-<body>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+        <title>Fyrstikkruter – flytt 3, få 3 ruter</title>
+        <style>
+         :root{
+             --wood-1:#5a331a; --wood-2:#3f2312; --ink:#fff4e0; --muted:#d9bf9c;
+             --red:#d9281e; --gold:#f2c230; --panel:#2a1609; --ok:#5fbf6a; --warn:#ff7a59;
+         }
+         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+         html,body{height:100%;margin:0}
+         body{
+             display:flex;flex-direction:column;
+             background:var(--panel);color:var(--ink);
+             font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+             overflow:hidden;overscroll-behavior:none;
+             padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+         }
+         header{padding:10px 14px 6px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+         h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.01em}
+         .rule{font-size:.82rem;color:var(--muted);margin:0;line-height:1.35}
+         .bar{display:flex;align-items:center;gap:10px;padding:4px 14px 8px;flex-wrap:wrap}
+         .timer{font:700 1.5rem/1 "Courier New",monospace;min-width:6.2ch;color:var(--gold)}
+         .pips{display:flex;gap:5px;align-items:center;font-size:.8rem;color:var(--muted)}
+         .pip{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);transition:background .2s}
+         .pip.on{background:var(--red);border-color:var(--red)}
+         .spacer{flex:1}
+         button{
+             font:600 .95rem Georgia,serif;color:var(--ink);background:#7a4a26;border:0;border-radius:8px;
+             padding:10px 16px;min-height:44px;cursor:pointer;box-shadow:0 2px 0 #2a1609;
+         }
+         button:active{transform:translateY(1px);box-shadow:none}
+         button:disabled{opacity:.4;cursor:default}
+         button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+         #startBtn{background:#2f7d3b}
+         #stopBtn{background:#a8291f}
+         #msg{min-height:1.4em;padding:0 14px 6px;font-size:.9rem;color:var(--muted)}
+         #msg.warn{color:var(--warn)}
+         .stage{flex:1;min-height:0;padding:0 8px 8px;display:flex;justify-content:center;position:relative}
+         svg{
+             width:100%;height:100%;max-width:640px;touch-action:none;user-select:none;-webkit-user-select:none;
+             border-radius:12px;
+             background:
+                 repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 120px),
+                 repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 3px,rgba(0,0,0,.04) 3px 9px),
+                 linear-gradient(180deg,var(--wood-1),var(--wood-2));
+             box-shadow:inset 0 0 40px rgba(0,0,0,.5);
+         }
+         .stick{cursor:grab}
+         .stick.locked{cursor:not-allowed}
+         .stick .sel{fill:none;stroke:var(--gold);stroke-width:2;stroke-dasharray:6 4;opacity:0}
+         .stick.selected .sel{opacity:1}
+         .stick.moved .body{filter:drop-shadow(0 0 3px rgba(255,200,80,.9))}
+         .rot{position:absolute;right:16px;bottom:16px;display:none;gap:8px}
+         .rot.show{display:flex}
+         .rot button{width:52px;height:52px;padding:0;font-size:1.5rem;border-radius:50%;background:#2a1609cc;border:2px solid var(--gold)}
+         .overlay{
+             position:fixed;inset:0;background:rgba(15,7,2,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:10;
+         }
+         .overlay.show{display:flex}
+         .card{background:#3a1f0e;border:2px solid var(--gold);border-radius:14px;padding:22px;max-width:380px;text-align:center}
+         .card h2{margin:0 0 8px;font-size:1.3rem}
+         .card p{margin:0 0 16px;line-height:1.45;color:var(--muted)}
+         .card .big{font:700 2.2rem "Courier New",monospace;color:var(--gold);margin:6px 0 14px}
+         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+        </style>
+    </head>
+    <body>
 
-<header>
-  <h1>Tolv fyrstikker, tre ruter</h1>
-  <p class="rule">Flytt nøyaktig 3 av de 12 fyrstikkene slik at du får akkurat 3 ruter. Hver rute har én fyrstikk per side, og du får ikke låne av naboen.</p>
-</header>
+        <header>
+            <h1>Lag tre ruter!</h1>
+            <p class="rule">Flytt bare 3 fyrstikker og lag akkurat 3 ruter ⬜. Ingen analyseverktøy er tillatt, bare hjernetrim! 😄</p>
+        </header>
 
-<div class="bar">
-  <div class="timer" id="timer" aria-live="off">00:00.0</div>
-  <div class="pips" title="Antall fyrstikker flyttet"><span>Flyttet</span>
-    <span class="pip" id="p1"></span><span class="pip" id="p2"></span><span class="pip" id="p3"></span>
-  </div>
-  <div class="spacer"></div>
-  <button id="startBtn">Start</button>
-  <button id="stopBtn" disabled>Stopp</button>
-  <button id="resetBtn" title="Legg alle fyrstikkene tilbake">Nullstill</button>
-</div>
-<div id="msg" role="status">Trykk Start for å begynne. Dra en fyrstikk for å flytte den, og vri med to fingre. Klokka går fra du trykker, ikke fra du er ferdig med å tenke ☺️</div>
+        <div class="bar">
+            <div class="timer" id="timer" aria-live="off">00:00.0</div>
+            <div class="pips" title="Antall fyrstikker flyttet"><span>Flyttet</span>
+                <span class="pip" id="p1"></span><span class="pip" id="p2"></span><span class="pip" id="p3"></span>
+            </div>
+            <div class="spacer"></div>
+            <button id="startBtn">Start</button>
+            <button id="stopBtn" disabled>Stopp</button>
+        </div>
+        <div id="msg" role="status">Trykk Start for å begynne. Dra en fyrstikk for å flytte den, og vri med to fingre. Klokka går fra du trykker, ikke fra du er ferdig med å tenke ☺️</div>
 
-<div class="stage">
-  <svg id="board" viewBox="0 0 460 520" preserveAspectRatio="xMidYMid meet" aria-label="Fyrstikkbrett med tolv fyrstikker">
-    <defs>
-      <linearGradient id="woodStick" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f1d49a"/><stop offset=".55" stop-color="#d9b06b"/><stop offset="1" stop-color="#b98a48"/>
-      </linearGradient>
-      <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#ff5a45"/><stop offset="1" stop-color="#b5160f"/>
-      </linearGradient>
-    </defs>
-    <g id="sticks"></g>
-  </svg>
-  <div class="rot" id="rotBtns">
-    <button id="rotL" aria-label="Vri valgt fyrstikk mot venstre">&#8634;</button>
-    <button id="rotR" aria-label="Vri valgt fyrstikk mot høyre">&#8635;</button>
-  </div>
-</div>
+        <div class="stage">
+            <svg id="board" viewBox="0 0 460 520" preserveAspectRatio="xMidYMid meet" aria-label="Fyrstikkbrett med tolv fyrstikker">
+                <defs>
+                    <linearGradient id="woodStick" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#f1d49a"/><stop offset=".55" stop-color="#d9b06b"/><stop offset="1" stop-color="#b98a48"/>
+                    </linearGradient>
+                    <linearGradient id="headGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#ff5a45"/><stop offset="1" stop-color="#b5160f"/>
+                    </linearGradient>
+                </defs>
+                <g id="sticks"></g>
+            </svg>
+            <div class="rot" id="rotBtns">
+                <button id="rotL" aria-label="Vri valgt fyrstikk mot venstre">&#8634;</button>
+                <button id="rotR" aria-label="Vri valgt fyrstikk mot høyre">&#8635;</button>
+            </div>
+        </div>
 
-<div class="overlay" id="warnOv">
-  <div class="card">
-    <h2>Fire fyrstikker flyttet!</h2>
-    <p>Du har fått lov til å flytte 3. Ikke 4. Brettet er nullstilt og klokka står på null. Trykk Start og prøv igjen, denne gangen med litt mer måtehold.</p>
-    <button id="warnOk">OK, jeg lover</button>
-  </div>
-</div>
+        <div class="overlay" id="warnOv">
+            <div class="card">
+                <h2>Fire fyrstikker flyttet!</h2>
+                <p>Du har fått lov til å flytte 3. Ikke 4. Brettet er nullstilt og klokka står på null. Trykk Start og prøv igjen, denne gangen med litt mer måtehold.</p>
+                <button id="warnOk">OK, jeg lover</button>
+            </div>
+        </div>
 
-<div class="overlay" id="winOv">
-  <div class="card">
-    <h2>Rutene er i boks!</h2>
-    <div class="big" id="winTime">00:00.0</div>
-    <p id="winBest"></p>
-    <button id="winOk">Spill igjen</button>
-  </div>
-</div>
+        <div class="overlay" id="winOv">
+            <div class="card">
+                <h2>Rutene er i boks!✌️</h2>
+                <div class="big" id="winTime">00:00.0</div>
+                <p id="winBest"></p>
+                <button id="winOk">Lukk</button>
+            </div>
+        </div>
 
-<script>
-(() => {
-  const W = 460, H = 520, L = 120, TOL = 14;
-  const MOVE_LIMIT = 3, TARGET_SQUARES = 3;
-  const svg = document.getElementById('board');
-  const gSticks = document.getElementById('sticks');
-  const NS = 'http://www.w3.org/2000/svg';
+        <script>
+         (() => {
+             const W = 460, H = 520, L = 120, TOL = 14;
+             const MOVE_LIMIT = 3, TARGET_SQUARES = 3;
+             const svg = document.getElementById('board');
+             const gSticks = document.getElementById('sticks');
+             const NS = 'http://www.w3.org/2000/svg';
 
-  // Rutenett (#): to loddrette og to vannrette linjer, hver på 3 fyrstikker.
-  const gx = 50, gy = 80;
-  const X = [gx, gx+L, gx+2*L, gx+3*L], Y = [gy, gy+L, gy+2*L, gy+3*L];
-  const defs = [];
-  [1,2].forEach(c => { for (let r=0;r<3;r++) defs.push({a:{x:X[c],y:Y[r]}, b:{x:X[c],y:Y[r+1]}}); }); // loddrette
-  [1,2].forEach(r => { for (let c=0;c<3;c++) defs.push({a:{x:X[c],y:Y[r]}, b:{x:X[c+1],y:Y[r]}}); }); // vannrette
+             // Rutenett (#): to loddrette og to vannrette linjer, hver på 3 fyrstikker.
+             const gx = 50, gy = 80;
+             const X = [gx, gx+L, gx+2*L, gx+3*L], Y = [gy, gy+L, gy+2*L, gy+3*L];
+             const defs = [];
+             [1,2].forEach(c => { for (let r=0;r<3;r++) defs.push({a:{x:X[c],y:Y[r]}, b:{x:X[c],y:Y[r+1]}}); }); // loddrette
+             [1,2].forEach(r => { for (let c=0;c<3;c++) defs.push({a:{x:X[c],y:Y[r]}, b:{x:X[c+1],y:Y[r]}}); }); // vannrette
 
-  const sticks = defs.map((d,i) => {
-    const cx = (d.a.x+d.b.x)/2, cy = (d.a.y+d.b.y)/2;
-    const ang = Math.atan2(d.b.y-d.a.y, d.b.x-d.a.x);
-    return {id:i, cx, cy, ang, home:{cx,cy,ang}, el:null};
-  });
+             const sticks = defs.map((d,i) => {
+                 const cx = (d.a.x+d.b.x)/2, cy = (d.a.y+d.b.y)/2;
+                 const ang = Math.atan2(d.b.y-d.a.y, d.b.x-d.a.x);
+                 return {id:i, cx, cy, ang, home:{cx,cy,ang}, el:null};
+             });
 
-  sticks.forEach(s => {
-    const g = document.createElementNS(NS,'g');
-    g.setAttribute('class','stick locked');
-    g.dataset.id = s.id;
-    g.innerHTML =
-      `<rect class="hit" x="${-L/2}" y="-18" width="${L}" height="36" fill="transparent"/>
+             sticks.forEach(s => {
+                 const g = document.createElementNS(NS,'g');
+                 g.setAttribute('class','stick locked');
+                 g.dataset.id = s.id;
+                 g.innerHTML =
+                     `<rect class="hit" x="${-L/2}" y="-18" width="${L}" height="36" fill="transparent"/>
        <rect class="sel" x="${-L/2-5}" y="-11" width="${L+10}" height="22" rx="11"/>
        <g class="body">
          <rect x="${-L/2}" y="-4.5" width="${L}" height="9" rx="4.5" fill="url(#woodStick)" stroke="#8d6531" stroke-width=".8"/>
          <rect x="${-L/2-2}" y="-6.5" width="20" height="13" rx="6.5" fill="url(#headGrad)" stroke="#7d0e09" stroke-width=".8"/>
        </g>`;
-    gSticks.appendChild(g);
-    s.el = g;
-  });
+                 gSticks.appendChild(g);
+                 s.el = g;
+             });
 
-  const draw = s => s.el.setAttribute('transform',
-    `translate(${s.cx.toFixed(2)} ${s.cy.toFixed(2)}) rotate(${(s.ang*180/Math.PI).toFixed(2)})`);
-  const drawAll = () => sticks.forEach(draw);
+             const draw = s => s.el.setAttribute('transform',
+                                                 `translate(${s.cx.toFixed(2)} ${s.cy.toFixed(2)}) rotate(${(s.ang*180/Math.PI).toFixed(2)})`);
+             const drawAll = () => sticks.forEach(draw);
 
-  // ---------- tilstand ----------
-  let state = 'idle';            // idle | running | finished
-  let t0 = 0, timerId = null, elapsed = 0;
-  const moved = new Set();
-  let selected = null;
+             // ---------- tilstand ----------
+             let state = 'idle';            // idle | running | finished
+             let t0 = 0, timerId = null, elapsed = 0;
+             const moved = new Set();
+             let selected = null;
 
-  const $ = id => document.getElementById(id);
-  const startBtn = $('startBtn'), stopBtn = $('stopBtn'), resetBtn = $('resetBtn');
-  const msg = $('msg'), timerEl = $('timer'), rotBtns = $('rotBtns');
+             const $ = id => document.getElementById(id);
+             const startBtn = $('startBtn'), stopBtn = $('stopBtn');
+             const msg = $('msg'), timerEl = $('timer'), rotBtns = $('rotBtns');
 
-  const fmt = ms => {
-    const t = Math.floor(ms/100), tenth = t%10, sec = Math.floor(t/10)%60, min = Math.floor(t/600);
-    return String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0')+'.'+tenth;
-  };
-  const say = (t, warn=false) => { msg.textContent = t; msg.classList.toggle('warn', warn); };
+             const fmt = ms => {
+                 const t = Math.floor(ms/100), tenth = t%10, sec = Math.floor(t/10)%60, min = Math.floor(t/600);
+                 return String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0')+'.'+tenth;
+             };
+             const say = (t, warn=false) => { msg.textContent = t; msg.classList.toggle('warn', warn); };
 
-  function updatePips(){
-    [1,2,3].forEach(n => $('p'+n).classList.toggle('on', moved.size >= n));
-    sticks.forEach(s => s.el.classList.toggle('moved', moved.has(s.id)));
-  }
-  function setLocked(lock){ sticks.forEach(s => s.el.classList.toggle('locked', lock)); }
-  function select(s){
-    selected = s;
-    sticks.forEach(x => x.el.classList.toggle('selected', x === s));
-    rotBtns.classList.toggle('show', !!s && state === 'running');
-  }
+             function updatePips(){
+                 [1,2,3].forEach(n => $('p'+n).classList.toggle('on', moved.size >= n));
+                 sticks.forEach(s => s.el.classList.toggle('moved', moved.has(s.id)));
+             }
+             function setLocked(lock){ sticks.forEach(s => s.el.classList.toggle('locked', lock)); }
+             function select(s){
+                 selected = s;
+                 sticks.forEach(x => x.el.classList.toggle('selected', x === s));
+                 rotBtns.classList.toggle('show', !!s && state === 'running');
+             }
 
-  function resetBoard(){
-    sticks.forEach(s => { s.cx = s.home.cx; s.cy = s.home.cy; s.ang = s.home.ang; });
-    sticks.forEach(s => gSticks.appendChild(s.el));
-    moved.clear(); select(null); drawAll(); updatePips();
-  }
-  function stopTimer(){ clearInterval(timerId); timerId = null; }
+             function resetBoard(){
+                 sticks.forEach(s => { s.cx = s.home.cx; s.cy = s.home.cy; s.ang = s.home.ang; });
+                 sticks.forEach(s => gSticks.appendChild(s.el));
+                 moved.clear(); select(null); drawAll(); updatePips();
+             }
+             function stopTimer(){ clearInterval(timerId); timerId = null; }
 
-  function fullReset(){
-    stopTimer(); state = 'idle'; elapsed = 0; timerEl.textContent = '00:00.0';
-    pointers.clear(); gesture = null;
-    resetBoard(); setLocked(true);
-    startBtn.disabled = false; stopBtn.disabled = true;
-    say('Trykk Start for å begynne. Dra en fyrstikk for å flytte den, og vri med to fingre. Klokka går fra du trykker, ikke fra du er ferdig med å tenke ☺️');
-  }
+             function fullReset(){
+                 stopTimer(); state = 'idle'; elapsed = 0; timerEl.textContent = '00:00.0';
+                 pointers.clear(); gesture = null;
+                 resetBoard(); setLocked(true);
+                 startBtn.disabled = false; stopBtn.disabled = true;
+                 say('Trykk Start for å begynne. Dra en fyrstikk for å flytte den, og vri med to fingre. Klokka går fra du trykker, ikke fra du er ferdig med å tenke ☺️');
+             }
 
-  function start(){
-    if (state === 'running') return;
-    fullReset();
-    state = 'running'; t0 = performance.now();
-    timerId = setInterval(() => { elapsed = performance.now()-t0; timerEl.textContent = fmt(elapsed); }, 50);
-    setLocked(false); startBtn.disabled = true; stopBtn.disabled = false;
-    say('Nå går klokka! Maks 3 fyrstikker kan flyttes. Vri med to fingre, musehjulet eller de runde knappene.');
-  }
+             function start(){
+                 if (state === 'running') return;
+                 fullReset();
+                 state = 'running'; t0 = performance.now();
+                 timerId = setInterval(() => { elapsed = performance.now()-t0; timerEl.textContent = fmt(elapsed); }, 50);
+                 setLocked(false); startBtn.disabled = true; stopBtn.disabled = false;
+                 say('Nå går klokka! Maks 3 fyrstikker kan flyttes. Vri med to fingre, musehjulet eller de runde knappene.');
+             }
 
-  function violation(){
-    stopTimer(); pointers.clear(); gesture = null;
-    fullReset();
-    $('warnOv').classList.add('show');
-    say('Du flyttet en fjerde fyrstikk. Start på nytt fra begynnelsen.', true);
-  }
+             function violation(){
+                 stopTimer(); pointers.clear(); gesture = null;
+                 fullReset();
+                 $('warnOv').classList.add('show');
+                 say('Du flyttet en fjerde fyrstikk. Start på nytt fra begynnelsen.', true);
+             }
 
-  // ---------- løsningssjekk: tell ruter ----------
-  const endpoints = s => {
-    const c = Math.cos(s.ang)*L/2, n = Math.sin(s.ang)*L/2;
-    return [{x:s.cx-c, y:s.cy-n}, {x:s.cx+c, y:s.cy+n}];
-  };
-  const near = (v, target, tol) => Math.abs(v-target) <= target*tol;
+             // ---------- løsningssjekk: tell ruter ----------
+             const endpoints = s => {
+                 const c = Math.cos(s.ang)*L/2, n = Math.sin(s.ang)*L/2;
+                 return [{x:s.cx-c, y:s.cy-n}, {x:s.cx+c, y:s.cy+n}];
+             };
+             const near = (v, target, tol) => Math.abs(v-target) <= target*tol;
 
-  function countSquares(){
-    const pts = [];
-    sticks.forEach(s => endpoints(s).forEach(p => pts.push(p)));
-    const parent = pts.map((_,i)=>i);
-    const find = i => parent[i]===i ? i : (parent[i]=find(parent[i]));
-    for (let i=0;i<pts.length;i++) for (let j=i+1;j<pts.length;j++)
-      if (Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y) <= TOL) parent[find(i)] = find(j);
-    const roots = [...new Set(pts.map((_,i)=>find(i)))];
-    const idx = new Map(roots.map((r,i)=>[r,i]));
-    const nodes = roots.map(r => {
-      const m = pts.filter((_,i)=>find(i)===r);
-      return {x:m.reduce((a,p)=>a+p.x,0)/m.length, y:m.reduce((a,p)=>a+p.y,0)/m.length};
-    });
-    const n = nodes.length;
-    const adj = Array.from({length:n}, () => Array(n).fill(false));
-    for (let s=0;s<sticks.length;s++){
-      const a = idx.get(find(2*s)), b = idx.get(find(2*s+1));
-      if (a !== b){ adj[a][b] = adj[b][a] = true; }
-    }
-    const d = (p,q) => Math.hypot(nodes[p].x-nodes[q].x, nodes[p].y-nodes[q].y);
-    let count = 0;
-    for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) for (let k=j+1;k<n;k++) for (let l=k+1;l<n;l++){
-      const orders = [[i,j,k,l],[i,j,l,k],[i,k,j,l]];
-      for (const o of orders){
-        if (adj[o[0]][o[1]] && adj[o[1]][o[2]] && adj[o[2]][o[3]] && adj[o[3]][o[0]]){
-          const sides = [d(o[0],o[1]), d(o[1],o[2]), d(o[2],o[3]), d(o[3],o[0])];
-          const diags = [d(o[0],o[2]), d(o[1],o[3])];
-          if (sides.every(v => near(v, L, .2)) && diags.every(v => near(v, L*Math.SQRT2, .2))){ count++; break; }
-        }
-      }
-    }
-    return count;
-  }
+             function countSquares(){
+                 const pts = [];
+                 sticks.forEach(s => endpoints(s).forEach(p => pts.push(p)));
+                 const parent = pts.map((_,i)=>i);
+                 const find = i => parent[i]===i ? i : (parent[i]=find(parent[i]));
+                 for (let i=0;i<pts.length;i++) for (let j=i+1;j<pts.length;j++)
+                     if (Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y) <= TOL) parent[find(i)] = find(j);
+                 const roots = [...new Set(pts.map((_,i)=>find(i)))];
+                 const idx = new Map(roots.map((r,i)=>[r,i]));
+                 const nodes = roots.map(r => {
+                     const m = pts.filter((_,i)=>find(i)===r);
+                     return {x:m.reduce((a,p)=>a+p.x,0)/m.length, y:m.reduce((a,p)=>a+p.y,0)/m.length};
+                 });
+                 const n = nodes.length;
+                 const adj = Array.from({length:n}, () => Array(n).fill(false));
+                 for (let s=0;s<sticks.length;s++){
+                     const a = idx.get(find(2*s)), b = idx.get(find(2*s+1));
+                     if (a !== b){ adj[a][b] = adj[b][a] = true; }
+                 }
+                 const d = (p,q) => Math.hypot(nodes[p].x-nodes[q].x, nodes[p].y-nodes[q].y);
+                 let count = 0;
+                 for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) for (let k=j+1;k<n;k++) for (let l=k+1;l<n;l++){
+                     const orders = [[i,j,k,l],[i,j,l,k],[i,k,j,l]];
+                     for (const o of orders){
+                         if (adj[o[0]][o[1]] && adj[o[1]][o[2]] && adj[o[2]][o[3]] && adj[o[3]][o[0]]){
+                             const sides = [d(o[0],o[1]), d(o[1],o[2]), d(o[2],o[3]), d(o[3],o[0])];
+                             const diags = [d(o[0],o[2]), d(o[1],o[3])];
+                             if (sides.every(v => near(v, L, .2)) && diags.every(v => near(v, L*Math.SQRT2, .2))){ count++; break; }
+                         }
+                     }
+                 }
+                 return count;
+             }
 
-  function stop(){
-    if (state !== 'running') return;
-    const n = countSquares();
-    if (n === TARGET_SQUARES){
-      elapsed = performance.now()-t0; stopTimer(); state = 'finished';
-      timerEl.textContent = fmt(elapsed);
-      setLocked(true); select(null);
-      startBtn.disabled = false; stopBtn.disabled = true;
-      let best = null;
-      try { best = parseFloat(localStorage.getItem('fyrstikkRuterBest')); } catch(e){}
-      let line = '';
-      if (!best || elapsed < best){ line = 'Ny rekord! Fyrstikk-geni.'; try { localStorage.setItem('fyrstikkRuterBest', String(elapsed)); } catch(e){} }
-      else line = 'Rekorden din: ' + fmt(best) + '. Kan du slå den?';
-      $('winTime').textContent = fmt(elapsed);
-      $('winBest').textContent = line;
-      $('winOv').classList.add('show');
-      say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
-    } else if (n === 0){
-      say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
-    } else {
-      say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
-    }
-  }
+             function stop(){
+                 if (state !== 'running') return;
+                 const n = countSquares();
+                 if (n === TARGET_SQUARES){
+                     elapsed = performance.now()-t0; stopTimer(); state = 'finished';
+                     timerEl.textContent = fmt(elapsed);
+                     setLocked(true); select(null);
+                     startBtn.disabled = false; stopBtn.disabled = true;
+                     let best = null;
+                     try { best = parseFloat(localStorage.getItem('fyrstikkRuterBest')); } catch(e){}
+                     let line = '';
+                     if (!best || elapsed < best){ line = 'Ny rekord! Fyrstikk-geni.'; try { localStorage.setItem('fyrstikkRuterBest', String(elapsed)); } catch(e){} }
+                     else line = 'Rekorden din: ' + fmt(best) + '.';
+                     $('winTime').textContent = fmt(elapsed);
+                     $('winBest').textContent = line;
+                     $('winOv').classList.add('show');
+                     say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
+                 } else if (n === 0){
+                     say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
+                 } else {
+                     say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
+                 }
+             }
 
-  // ---------- flytting ----------
-  const angDiff = (a,b) => { let d = a-b; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; return d; };
-  const SIGNIF = (s, p) => Math.hypot(p.cx-s.home.cx, p.cy-s.home.cy) > 3 || Math.abs(angDiff(p.ang, s.home.ang)) > 0.035;
-  const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+             // ---------- flytting ----------
+             const angDiff = (a,b) => { let d = a-b; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; return d; };
+             const SIGNIF = (s, p) => Math.hypot(p.cx-s.home.cx, p.cy-s.home.cy) > 3 || Math.abs(angDiff(p.ang, s.home.ang)) > 0.035;
+             const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
 
-  // returnerer false hvis en fjerde fyrstikk ble flyttet
-  function applyPose(s, cx, cy, ang){
-    const p = {cx: clamp(cx, 10, W-10), cy: clamp(cy, 10, H-10), ang};
-    if (SIGNIF(s, p) && !moved.has(s.id)){
-      if (moved.size >= MOVE_LIMIT){ violation(); return false; }
-      moved.add(s.id); updatePips();
-    }
-    s.cx = p.cx; s.cy = p.cy; s.ang = p.ang; draw(s);
-    return true;
-  }
+             // returnerer false hvis en fjerde fyrstikk ble flyttet
+             function applyPose(s, cx, cy, ang){
+                 const p = {cx: clamp(cx, 10, W-10), cy: clamp(cy, 10, H-10), ang};
+                 if (SIGNIF(s, p) && !moved.has(s.id)){
+                     if (moved.size >= MOVE_LIMIT){ violation(); return false; }
+                     moved.add(s.id); updatePips();
+                 }
+                 s.cx = p.cx; s.cy = p.cy; s.ang = p.ang; draw(s);
+                 return true;
+             }
 
-  const toSvg = e => {
-    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-    const r = pt.matrixTransform(svg.getScreenCTM().inverse());
-    return {x:r.x, y:r.y};
-  };
+             const toSvg = e => {
+                 const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+                 const r = pt.matrixTransform(svg.getScreenCTM().inverse());
+                 return {x:r.x, y:r.y};
+             };
 
-  const pointers = new Map();
-  let gesture = null;
+             const pointers = new Map();
+             let gesture = null;
 
-  function beginGesture(){
-    if (!gesture) return;
-    const s = gesture.stick;
-    const ids = [...gesture.ids].filter(id => pointers.has(id));
-    gesture.ids = new Set(ids);
-    if (ids.length === 0){ gesture = null; return; }
-    gesture.s0 = {cx:s.cx, cy:s.cy, ang:s.ang};
-    if (ids.length === 1){
-      const p = pointers.get(ids[0]);
-      gesture.mode = 1; gesture.off = {x:s.cx-p.x, y:s.cy-p.y};
-    } else {
-      const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
-      gesture.mode = 2;
-      gesture.a0 = Math.atan2(q.y-p.y, q.x-p.x);
-      gesture.m0 = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
-      gesture.d = {x:s.cx-gesture.m0.x, y:s.cy-gesture.m0.y};
-    }
-  }
+             function beginGesture(){
+                 if (!gesture) return;
+                 const s = gesture.stick;
+                 const ids = [...gesture.ids].filter(id => pointers.has(id));
+                 gesture.ids = new Set(ids);
+                 if (ids.length === 0){ gesture = null; return; }
+                 gesture.s0 = {cx:s.cx, cy:s.cy, ang:s.ang};
+                 if (ids.length === 1){
+                     const p = pointers.get(ids[0]);
+                     gesture.mode = 1; gesture.off = {x:s.cx-p.x, y:s.cy-p.y};
+                 } else {
+                     const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
+                     gesture.mode = 2;
+                     gesture.a0 = Math.atan2(q.y-p.y, q.x-p.x);
+                     gesture.m0 = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
+                     gesture.d = {x:s.cx-gesture.m0.x, y:s.cy-gesture.m0.y};
+                 }
+             }
 
-  svg.addEventListener('pointerdown', e => {
-    if (state !== 'running') return;
-    const hit = e.target.closest && e.target.closest('.stick');
-    const pos = toSvg(e);
-    if (hit && !gesture){
-      const s = sticks[+hit.dataset.id];
-      svg.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, pos);
-      select(s);
-      gSticks.appendChild(s.el);
-      gesture = {stick:s, ids:new Set([e.pointerId])};
-      beginGesture();
-      e.preventDefault();
-    } else if (gesture && gesture.ids.size < 2){
-      svg.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, pos);
-      gesture.ids.add(e.pointerId);
-      beginGesture();
-      e.preventDefault();
-    } else if (!hit){
-      select(null);
-    }
-  });
+             svg.addEventListener('pointerdown', e => {
+                 if (state !== 'running') return;
+                 const hit = e.target.closest && e.target.closest('.stick');
+                 const pos = toSvg(e);
+                 if (hit && !gesture){
+                     const s = sticks[+hit.dataset.id];
+                     svg.setPointerCapture(e.pointerId);
+                     pointers.set(e.pointerId, pos);
+                     select(s);
+                     gSticks.appendChild(s.el);
+                     gesture = {stick:s, ids:new Set([e.pointerId])};
+                     beginGesture();
+                     e.preventDefault();
+                 } else if (gesture && gesture.ids.size < 2){
+                     svg.setPointerCapture(e.pointerId);
+                     pointers.set(e.pointerId, pos);
+                     gesture.ids.add(e.pointerId);
+                     beginGesture();
+                     e.preventDefault();
+                 } else if (!hit){
+                     select(null);
+                 }
+             });
 
-  svg.addEventListener('pointermove', e => {
-    if (!pointers.has(e.pointerId) || !gesture || state !== 'running') return;
-    pointers.set(e.pointerId, toSvg(e));
-    const s = gesture.stick, ids = [...gesture.ids];
-    if (gesture.mode === 1 && ids.length === 1){
-      const p = pointers.get(ids[0]);
-      applyPose(s, p.x+gesture.off.x, p.y+gesture.off.y, gesture.s0.ang);
-    } else if (gesture.mode === 2 && ids.length >= 2){
-      const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
-      const a = Math.atan2(q.y-p.y, q.x-p.x), da = a - gesture.a0;
-      const m = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
-      const c = Math.cos(da), n = Math.sin(da);
-      applyPose(s, m.x + gesture.d.x*c - gesture.d.y*n, m.y + gesture.d.x*n + gesture.d.y*c, gesture.s0.ang + da);
-    }
-    e.preventDefault();
-  });
+             svg.addEventListener('pointermove', e => {
+                 if (!pointers.has(e.pointerId) || !gesture || state !== 'running') return;
+                 pointers.set(e.pointerId, toSvg(e));
+                 const s = gesture.stick, ids = [...gesture.ids];
+                 if (gesture.mode === 1 && ids.length === 1){
+                     const p = pointers.get(ids[0]);
+                     applyPose(s, p.x+gesture.off.x, p.y+gesture.off.y, gesture.s0.ang);
+                 } else if (gesture.mode === 2 && ids.length >= 2){
+                     const p = pointers.get(ids[0]), q = pointers.get(ids[1]);
+                     const a = Math.atan2(q.y-p.y, q.x-p.x), da = a - gesture.a0;
+                     const m = {x:(p.x+q.x)/2, y:(p.y+q.y)/2};
+                     const c = Math.cos(da), n = Math.sin(da);
+                     applyPose(s, m.x + gesture.d.x*c - gesture.d.y*n, m.y + gesture.d.x*n + gesture.d.y*c, gesture.s0.ang + da);
+                 }
+                 e.preventDefault();
+             });
 
-  const endPointer = e => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (gesture){ gesture.ids.delete(e.pointerId); beginGesture(); }
-  };
-  svg.addEventListener('pointerup', endPointer);
-  svg.addEventListener('pointercancel', endPointer);
-  svg.addEventListener('lostpointercapture', endPointer);
+             const endPointer = e => {
+                 if (!pointers.has(e.pointerId)) return;
+                 pointers.delete(e.pointerId);
+                 if (gesture){ gesture.ids.delete(e.pointerId); beginGesture(); }
+             };
+             svg.addEventListener('pointerup', endPointer);
+             svg.addEventListener('pointercancel', endPointer);
+             svg.addEventListener('lostpointercapture', endPointer);
 
-  // vri med musehjul, knapper eller tastatur
-  function rotateSelected(deg){
-    if (state !== 'running' || !selected) return;
-    applyPose(selected, selected.cx, selected.cy, selected.ang + deg*Math.PI/180);
-  }
-  svg.addEventListener('wheel', e => {
-    if (state !== 'running' || !selected) return;
-    e.preventDefault();
-    rotateSelected(e.deltaY > 0 ? 6 : -6);
-  }, {passive:false});
-  $('rotL').addEventListener('click', () => rotateSelected(-10));
-  $('rotR').addEventListener('click', () => rotateSelected(10));
-  window.addEventListener('keydown', e => {
-    if (e.key === 'q' || e.key === 'Q') rotateSelected(-6);
-    if (e.key === 'e' || e.key === 'E') rotateSelected(6);
-  });
+             // vri med musehjul, knapper eller tastatur
+             function rotateSelected(deg){
+                 if (state !== 'running' || !selected) return;
+                 applyPose(selected, selected.cx, selected.cy, selected.ang + deg*Math.PI/180);
+             }
+             svg.addEventListener('wheel', e => {
+                 if (state !== 'running' || !selected) return;
+                 e.preventDefault();
+                 rotateSelected(e.deltaY > 0 ? 6 : -6);
+             }, {passive:false});
+             $('rotL').addEventListener('click', () => rotateSelected(-10));
+             $('rotR').addEventListener('click', () => rotateSelected(10));
+             window.addEventListener('keydown', e => {
+                 if (e.key === 'q' || e.key === 'Q') rotateSelected(-6);
+                 if (e.key === 'e' || e.key === 'E') rotateSelected(6);
+             });
 
-  ['gesturestart','gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+             ['gesturestart','gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
 
-  startBtn.addEventListener('click', start);
-  stopBtn.addEventListener('click', stop);
-  resetBtn.addEventListener('click', fullReset);
-  $('warnOk').addEventListener('click', () => $('warnOv').classList.remove('show'));
-  $('winOk').addEventListener('click', () => { $('winOv').classList.remove('show'); fullReset(); });
+             startBtn.addEventListener('click', start);
+             stopBtn.addEventListener('click', stop);
+             $('warnOk').addEventListener('click', () => $('warnOv').classList.remove('show'));
+             $('winOk').addEventListener('click', () => { $('winOv').classList.remove('show'); fullReset(); });
 
-  fullReset();
-})();
-</script>
-</body>
+             fullReset();
+         })();
+        </script>
+    </body>
 </html>
