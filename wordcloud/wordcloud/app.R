@@ -172,7 +172,7 @@ ui <- fluidPage(
       div(
         class = "upload-row",
         uiOutput("upload_ui", inline = TRUE),
-        actionButton("use_google", "Bruk Google Sheet igjen", class = "btn-default")
+        actionButton("use_google", "Reaktiver autogenerator", class = "btn-default")
       ),
       tabsetPanel(
         id = "cloud_view",
