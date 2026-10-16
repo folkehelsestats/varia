@@ -1,6 +1,7 @@
 # Word cloud display app -----------------------------------------------------
 # Run from this folder with: shiny::runApp()
-# Required packages: shiny, highcharter, googlesheets4, wordcloud, RColorBrewer
+# Required packages: shiny, highcharter, googlesheets4, wordcloud, wordcloud2,
+#                    RColorBrewer, readxl
 
 library(shiny)
 library(highcharter)
@@ -8,6 +9,7 @@ library(googlesheets4)
 library(wordcloud)
 library(wordcloud2)
 library(RColorBrewer)
+library(readxl)
 
 hdir_colors <- c(
   "#025169", "#0069E8",
@@ -31,18 +33,21 @@ if (!file.exists(credentials_file)) {
 }
 googlesheets4::gs4_auth(path = credentials_file)
 
+empty_words <- data.frame(name = character(), weight = numeric())
+
+# Google Sheet source ----------------------------------------------------------
 get_word_counts <- function() {
   dat <- googlesheets4::read_sheet(ss = sheet_id, sheet = worksheet_name)
 
   if (!"word" %in% names(dat) || nrow(dat) == 0) {
-    return(data.frame(name = character(), weight = numeric()))
+    return(empty_words)
   }
 
   words <- tolower(trimws(as.character(dat$word)))
   words <- words[!is.na(words) & nzchar(words)]
 
   if (!length(words)) {
-    return(data.frame(name = character(), weight = numeric()))
+    return(empty_words)
   }
 
   freq <- as.data.frame(table(words), stringsAsFactors = FALSE)
@@ -53,15 +58,104 @@ get_word_counts <- function() {
   freq
 }
 
-empty_words <- data.frame(name = character(), weight = numeric())
+# Uploaded file source ---------------------------------------------------------
+# Reads a CSV (comma, semicolon or tab separated; UTF-8 or latin1) as text.
+read_csv_flex <- function(path) {
+  lines <- readLines(path, warn = FALSE)
+  enc <- if (validUTF8(paste(lines, collapse = "\n"))) "UTF-8-BOM" else "latin1"
+  first <- lines[1]
+  seps <- c(";", ",", "\t")
+  counts <- vapply(
+    seps,
+    function(s) lengths(regmatches(first, gregexpr(s, first, fixed = TRUE))),
+    integer(1)
+  )
+  sep <- seps[which.max(counts)]
+
+  utils::read.csv(
+    path,
+    sep = sep,
+    fileEncoding = enc,
+    colClasses = "character",
+    check.names = FALSE,
+    strip.white = TRUE,
+    stringsAsFactors = FALSE
+  )
+}
+
+to_numeric <- function(x) {
+  if (is.numeric(x)) return(as.numeric(x))
+  x <- gsub("[[:space:]]", "", as.character(x))
+  suppressWarnings(as.numeric(gsub(",", ".", x, fixed = TRUE)))
+}
+
+# Turns an uploaded table into the same data.frame(name, weight) that the
+# Google Sheet produces. Column 1 = word, column 2 = frequency by default;
+# common header names (word/ord, freq/antall/weight ...) are recognised.
+# A single-column file is treated as a raw word list and counted.
+read_uploaded_words <- function(path, filename) {
+  ext <- tolower(tools::file_ext(filename))
+
+  dat <- switch(
+    ext,
+    csv = , txt = , tsv = read_csv_flex(path),
+    xlsx = , xls = as.data.frame(readxl::read_excel(path, sheet = 1)),
+    stop("Filtypen .", ext, " støttes ikke. Bruk .csv, .xlsx eller .xls.")
+  )
+
+  if (nrow(dat) == 0 || ncol(dat) == 0) {
+    stop("Filen inneholder ingen data.")
+  }
+
+  if (ncol(dat) == 1) {
+    words <- tolower(trimws(as.character(dat[[1]])))
+    words <- words[!is.na(words) & nzchar(words)]
+    if (!length(words)) stop("Fant ingen ord i filen.")
+    freq <- as.data.frame(table(words), stringsAsFactors = FALSE)
+    names(freq) <- c("name", "weight")
+  } else {
+    nms <- tolower(trimws(names(dat)))
+    word_idx <- which(nms %in% c("word", "words", "ord", "name", "navn"))[1]
+    freq_idx <- which(nms %in% c(
+      "freq", "frequency", "weight", "count", "n",
+      "antall", "frekvens", "forekomster", "vekt"
+    ))[1]
+    if (is.na(word_idx)) word_idx <- 1
+    if (is.na(freq_idx) || freq_idx == word_idx) {
+      freq_idx <- setdiff(seq_len(ncol(dat)), word_idx)[1]
+    }
+
+    freq <- data.frame(
+      name = tolower(trimws(as.character(dat[[word_idx]]))),
+      weight = to_numeric(dat[[freq_idx]]),
+      stringsAsFactors = FALSE
+    )
+    freq <- freq[!is.na(freq$name) & nzchar(freq$name) &
+                   !is.na(freq$weight) & freq$weight > 0, , drop = FALSE]
+    if (nrow(freq) == 0) {
+      stop("Fant ingen gyldige rader. Forventer ord i første kolonne og frekvens (tall) i andre kolonne.")
+    }
+    # Sum duplicates of the same word
+    freq <- stats::aggregate(weight ~ name, data = freq, FUN = sum)
+  }
+
+  freq$weight <- as.numeric(freq$weight)
+  freq <- freq[order(-freq$weight, freq$name), , drop = FALSE]
+  rownames(freq) <- NULL
+  freq
+}
 
 ui <- fluidPage(
   tags$head(
     tags$script(src = "https://code.highcharts.com/modules/wordcloud.js"),
     tags$style(HTML("
-      .viewer-controls { margin: 12px 0 18px 0; }
+      .viewer-controls { margin: 12px 0 8px 0; }
       .viewer-status { margin-left: 12px; font-weight: 600; }
       .cloud-panel { padding-top: 15px; }
+      .upload-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+      .upload-row .shiny-input-container { margin-bottom: 0 !important; }
+      .upload-row .form-group { margin-bottom: 0 !important; }
+      .upload-row .progress { margin-bottom: 0; }
     "))
   ),
   titlePanel(""),
@@ -74,6 +168,11 @@ ui <- fluidPage(
         actionButton("resume_updates", "Oppdatere", class = "btn-success"),
         downloadButton("download_words", "Last ned orddata"),
         span(class = "viewer-status", textOutput("viewer_status", inline = TRUE))
+      ),
+      div(
+        class = "upload-row",
+        uiOutput("upload_ui", inline = TRUE),
+        actionButton("use_google", "Bruk Google Sheet igjen", class = "btn-default")
       ),
       tabsetPanel(
         id = "cloud_view",
@@ -108,6 +207,20 @@ server <- function(input, output, session) {
   viewer_message <- reactiveVal("Oppdatering pågår")
   load_message <- reactiveVal("")
 
+  # "google" = live Google Sheet, "upload" = uploaded file (sheet is not read)
+  data_source <- reactiveVal("google")
+  # Changing this re-creates the file input so the same file can be re-uploaded
+  upload_reset <- reactiveVal(0)
+
+  refresh_from_google <- function() {
+    tryCatch({
+      cached_words(get_word_counts())
+      load_message("")
+    }, error = function(e) {
+      load_message(paste("Refresh failed:", conditionMessage(e)))
+    })
+  }
+
   # Load once at startup so the chart can appear immediately.
   tryCatch(
     cached_words(get_word_counts()),
@@ -116,38 +229,76 @@ server <- function(input, output, session) {
     }
   )
 
+  output$upload_ui <- renderUI({
+    upload_reset()
+    fileInput(
+      "upload_file",
+      label = NULL,
+      accept = c(".csv", ".txt", ".tsv", ".xlsx", ".xls"),
+      buttonLabel = "Last opp CSV/Excel",
+      placeholder = "Ord og frekvens (kolonne 1 og 2)",
+      width = "360px"
+    )
+  })
+
   output$viewer_status <- renderText({
     paste(viewer_message(), load_message())
   })
 
-  # Poll the shared sheet every 3 seconds while live updates are enabled.
+  # Poll the shared sheet every 3 seconds, but only while the Google Sheet is
+  # the active source and live updates are enabled.
   observe({
     invalidateLater(3000, session)
-    if (!updates_enabled()) return()
-
-    tryCatch({
-      cached_words(get_word_counts())
-      load_message("")
-    }, error = function(e) {
-      load_message(paste("Refresh failed:", conditionMessage(e)))
-    })
+    if (data_source() != "google" || !updates_enabled()) return()
+    refresh_from_google()
   })
 
   observeEvent(input$pause_updates, {
+    if (data_source() != "google") return()
     updates_enabled(FALSE)
     viewer_message("Pause - ingen oppdatering")
   })
 
   observeEvent(input$resume_updates, {
+    if (data_source() != "google") return()
     updates_enabled(TRUE)
     viewer_message("Oppdatering fortsetter")
     # Refresh immediately on resume rather than waiting for the next poll.
-    tryCatch({
-      cached_words(get_word_counts())
-      load_message("")
-    }, error = function(e) {
-      load_message(paste("Refresh failed:", conditionMessage(e)))
-    })
+    refresh_from_google()
+  })
+
+  # Upload: stop using the Google Sheet and show the uploaded data instead.
+  observeEvent(input$upload_file, {
+    req(input$upload_file)
+    f <- input$upload_file
+
+    result <- tryCatch(
+      read_uploaded_words(f$datapath, f$name),
+      error = function(e) e
+    )
+
+    if (inherits(result, "error")) {
+      showNotification(
+        paste("Kunne ikke lese filen:", conditionMessage(result)),
+        type = "error",
+        duration = 10
+      )
+      return()
+    }
+
+    data_source("upload")
+    cached_words(result)
+    load_message("")
+    viewer_message(paste0("Viser opplastet fil: ", f$name, " (", nrow(result), " ord)"))
+  })
+
+  # Go back to the live Google Sheet.
+  observeEvent(input$use_google, {
+    data_source("google")
+    updates_enabled(TRUE)
+    upload_reset(upload_reset() + 1)
+    viewer_message("Oppdatering fortsetter")
+    refresh_from_google()
   })
 
   output$wordcloud <- renderHighchart({
