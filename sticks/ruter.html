@@ -297,9 +297,9 @@
                      $('winTime').textContent = fmt(elapsed);
                      $('winBest').textContent = line;
                      $('winOv').classList.add('show');
-                     say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
+                     say('Løst på ' + fmt(elapsed) + '. Så flink du er! Du må være stolt av deg selv ☺️');
                  } else if (n === TARGET_SQUARES && movedCount < MOVE_LIMIT){
-                     say('Du har akkurat 3 ruter, men bare flyttet ' + movedCount + (movedCount === 1 ? ' fyrstikk' : ' fyrstikker') + '. Du må flytte nøyaktig 3. Klokka går fortsatt.', true);
+                     say('Du har bare flyttet ' + movedCount + (movedCount === 1 ? ' fyrstikk' : ' fyrstikker') + '. Du må flytte nøyaktig 3. Klokka går fortsatt.', true);
                  } else if (n === 0){
                      say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
                  } else {
