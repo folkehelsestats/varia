@@ -259,10 +259,32 @@
                  return count;
              }
 
+             // Teller hvor mange fyrstikker som faktisk er flyttet sammenlignet med startbrettet.
+             // En fyrstikk som er flyttet og lagt tilbake på samme plass teller ikke.
+             function countMoved(){
+                 const homeEnds = sticks.map(s => {
+                     const c = Math.cos(s.home.ang)*L/2, n = Math.sin(s.home.ang)*L/2;
+                     return [{x:s.home.cx-c, y:s.home.cy-n}, {x:s.home.cx+c, y:s.home.cy+n}];
+                 });
+                 const same = (p,q) => Math.hypot(p.x-q.x, p.y-q.y) <= TOL;
+                 const matches = (e, h) =>
+                     (same(e[0],h[0]) && same(e[1],h[1])) || (same(e[0],h[1]) && same(e[1],h[0]));
+
+                 // fyrstikker som ikke ligger på noen av de opprinnelige plassene
+                 const offHome = sticks.filter(s => !homeEnds.some(h => matches(endpoints(s), h))).length;
+                 // opprinnelige plasser som nå står tomme
+                 const emptied = homeEnds.filter(h => !sticks.some(s => matches(endpoints(s), h))).length;
+
+                 return Math.max(offHome, emptied);
+             }
+
+
              function stop(){
                  if (state !== 'running') return;
                  const n = countSquares();
-                 if (n === TARGET_SQUARES){
+                 const movedCount = countMoved();
+
+                 if (n === TARGET_SQUARES && movedCount === MOVE_LIMIT){
                      elapsed = performance.now()-t0; stopTimer(); state = 'finished';
                      timerEl.textContent = fmt(elapsed);
                      setLocked(true); select(null);
@@ -276,12 +298,39 @@
                      $('winBest').textContent = line;
                      $('winOv').classList.add('show');
                      say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
+                 } else if (n === TARGET_SQUARES && movedCount < MOVE_LIMIT){
+                     say('Du har akkurat 3 ruter, men bare flyttet ' + movedCount + (movedCount === 1 ? ' fyrstikk' : ' fyrstikker') + '. Du må flytte nøyaktig 3. Klokka går fortsatt.', true);
                  } else if (n === 0){
                      say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
                  } else {
                      say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
                  }
              }
+             //
+             // // -- old function ---
+             // function stop(){
+             //     if (state !== 'running') return;
+             //     const n = countSquares();
+             //     if (n === TARGET_SQUARES){
+             //         elapsed = performance.now()-t0; stopTimer(); state = 'finished';
+             //         timerEl.textContent = fmt(elapsed);
+             //         setLocked(true); select(null);
+             //         startBtn.disabled = false; stopBtn.disabled = true;
+             //         let best = null;
+             //         try { best = parseFloat(localStorage.getItem('fyrstikkRuterBest')); } catch(e){}
+             //         let line = '';
+             //         if (!best || elapsed < best){ line = 'Ny rekord! Fyrstikk-geni.'; try { localStorage.setItem('fyrstikkRuterBest', String(elapsed)); } catch(e){} }
+             //         else line = 'Rekorden din: ' + fmt(best) + '.';
+             //         $('winTime').textContent = fmt(elapsed);
+             //         $('winBest').textContent = line;
+             //         $('winOv').classList.add('show');
+             //         say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
+             //     } else if (n === 0){
+             //         say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
+             //     } else {
+             //         say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
+             //     }
+             // }
 
              // ---------- flytting ----------
              const angDiff = (a,b) => { let d = a-b; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; return d; };
