@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-        <title>Fyrstikkruter – flytt 3, få 3 ruter</title>
+        <title>Fyrstikkkvadrater – flytt 3, få 3 kvadrater</title>
         <style>
          :root{
              --wood-1:#5a331a; --wood-2:#3f2312; --ink:#fff4e0; --muted:#d9bf9c;
@@ -70,8 +70,8 @@
     <body>
 
         <header>
-            <h1>Lag tre ruter!</h1>
-            <p class="rule">Flytt bare 3 fyrstikker og lag akkurat 3 ruter ⬜. Trykk Start for å begynne og Stopp når du fant løsningen.</p>
+            <h1>Lag tre kvadrater!</h1>
+            <p class="rule">Flytt bare 3 fyrstikker og lag akkurat 3 kvadrater ⬜. Trykk Start for å begynne og Stopp når du fant løsningen.</p>
         </header>
 
         <div class="bar">
@@ -218,7 +218,7 @@
                  say('Du flyttet en fjerde fyrstikk. Start på nytt fra begynnelsen.', true);
              }
 
-             // ---------- løsningssjekk: tell ruter ----------
+             // ---------- løsningssjekk: tell kvadrater ----------
              const endpoints = s => {
                  const c = Math.cos(s.ang)*L/2, n = Math.sin(s.ang)*L/2;
                  return [{x:s.cx-c, y:s.cy-n}, {x:s.cx+c, y:s.cy+n}];
@@ -301,9 +301,9 @@
                  } else if (n === TARGET_SQUARES && movedCount < MOVE_LIMIT){
                      say('Du har bare flyttet ' + movedCount + (movedCount === 1 ? ' fyrstikk' : ' fyrstikker') + '. Du må flytte nøyaktig 3. Klokka går fortsatt.', true);
                  } else if (n === 0){
-                     say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
+                     say('Ingen kvadrater å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
                  } else {
-                     say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
+                     say('Jeg ser ' + n + (n === 1 ? ' rute' : ' kvadrater') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
                  }
              }
              //
@@ -326,9 +326,9 @@
              //         $('winOv').classList.add('show');
              //         say('Løst på ' + fmt(elapsed) + '. Ikke verst for noen som bruker fyrstikker til noe annet enn bål.');
              //     } else if (n === 0){
-             //         say('Ingen ruter å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
+             //         say('Ingen kvadrater å se. Det er litt som en hage uten blomster. Klokka går fortsatt.', true);
              //     } else {
-             //         say('Jeg ser ' + n + (n === 1 ? ' rute' : ' ruter') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
+             //         say('Jeg ser ' + n + (n === 1 ? ' rute' : ' kvadrater') + ', men du skal ha nøyaktig 3. Klokka går fortsatt, så ikke bli stående og stirre.', true);
              //     }
              // }
 
