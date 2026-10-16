@@ -1,7 +1,12 @@
 # # Connect to Shiny server
 # rsconnect::connectCloudUser()
 
-rsconnect::deployApp(appDir='tasks')
+rsconnect::deployApp(appDir='tasks/results')
+
+rsconnect::deployApp(
+  appDir = "tasks/form",
+  account = "ybkamaleri"
+)
 
 # rsconnect::deployApp(appDir='wordcloud/words')
 rsconnect::deployApp(appDir='wordcloud/wordcloud')
