@@ -440,6 +440,19 @@ normalize_words_fast <- function(
     freq_dt[rows] <- block_dt
   }
 
+
+  ###########################################################################
+  # Rescue pass
+  ###########################################################################
+
+  freq_dt <- rescue_clusters(
+    freq_dt,
+    max_dist = max_dist,
+    prefix_ratio_threshold = prefix_ratio_threshold,
+    distance_method = distance_method
+  )
+
+  
   ###########################################################################
   # Canonical word = most frequent word in cluster
   ###########################################################################
@@ -531,4 +544,106 @@ common_prefix_ratio <- function(a, b) {
   }
 
   match_len / n
+}
+
+
+## Double check the canonical with mispelled eg.
+## inkkuderende should be inkluderende but was not matched
+## at first round due to prefix_length = 4 to reduce speed 
+rescue_clusters <- function(
+    freq_dt,
+    max_dist = 0.20,
+    prefix_ratio_threshold = 0.80,
+    distance_method = "osa"
+) {
+
+  centers <- freq_dt[
+    order(cluster, -freq)
+  ][
+    ,
+    .SD[1],
+    by = cluster
+  ]
+
+  setorder(centers, -freq)
+
+  centers[
+    ,
+    merged_cluster := cluster
+  ]
+
+  for (i in seq_len(nrow(centers) - 1L)) {
+
+    center_word <- centers$word[i]
+
+    candidates <- centers$word[
+      (i + 1):nrow(centers)
+    ]
+
+    dist <- stringdist::stringdist(
+      center_word,
+      candidates,
+      method = distance_method
+    )
+
+    rel_dist <- dist / pmax(
+      nchar(center_word),
+      nchar(candidates)
+    )
+
+    prefix_ratio <- vapply(
+      candidates,
+      function(x) {
+        common_prefix_ratio(
+          center_word,
+          x
+        )
+      },
+      numeric(1)
+    )
+
+    hits <- which(
+      rel_dist <= max_dist |
+        prefix_ratio >= prefix_ratio_threshold
+    )
+
+    if (length(hits) > 0) {
+
+      target_cluster <- centers$merged_cluster[i]
+
+      centers[
+        (i + 1):nrow(centers)
+      ][
+        hits,
+        merged_cluster := target_cluster
+      ]
+    }
+  }
+
+  cluster_lookup <- centers[
+    ,
+    .(
+      cluster,
+      merged_cluster
+    )
+  ]
+
+  freq_dt <- merge(
+    freq_dt,
+    cluster_lookup,
+    by = "cluster",
+    all.x = TRUE
+  )
+
+  freq_dt[
+    ,
+    cluster := merged_cluster
+  ]
+
+  freq_dt[
+    ,
+    merged_cluster := NULL
+  ]
+
+  freq_dt
 }
