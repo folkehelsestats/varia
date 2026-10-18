@@ -1,4 +1,19 @@
 
+# These settings must match the input app.
+sheet_id <- "108kPND1ySv8XQss6xt0DYo5kxYsAC1aTZpgxoJUuBuU"
+worksheet_name <- "words"
+credentials_file <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "service-task-survey.json")
+
+if (!file.exists(credentials_file)) {
+  stop(
+    "Google service-account JSON was not found. Set GOOGLE_SERVICE_ACCOUNT_JSON ",
+    "to its path, or place service-task-survey.json in this app folder."
+  )
+}
+googlesheets4::gs4_auth(path = credentials_file)
+
+empty_words <- data.frame(name = character(), weight = numeric())
+
 # Google Sheet source ----------------------------------------------------------
 get_word_counts <- function() {
   dat <- googlesheets4::read_sheet(ss = sheet_id, sheet = worksheet_name)
